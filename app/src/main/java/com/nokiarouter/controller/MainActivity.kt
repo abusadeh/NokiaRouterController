@@ -1,0 +1,96 @@
+package com.nokiarouter.controller
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nokiarouter.controller.ui.MainViewModel
+import com.nokiarouter.controller.ui.screens.*
+import com.nokiarouter.controller.ui.theme.AccentCyan
+import com.nokiarouter.controller.ui.theme.DarkSurface
+import com.nokiarouter.controller.ui.theme.NokiaRouterControllerTheme
+
+enum class NavigationTab(val title: String, val icon: ImageVector) {
+    DASHBOARD("الرئيسية", Icons.Default.Dashboard),
+    OPEN_NETWORK("الشبكة المقيدة", Icons.Default.Security),
+    DEVICES("الأجهزة", Icons.Default.Devices),
+    WIFI("الواي فاي", Icons.Default.Wifi)
+}
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            NokiaRouterControllerTheme {
+                val viewModel: MainViewModel = viewModel()
+                val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    if (!isLoggedIn) {
+                        LoginScreen(viewModel = viewModel)
+                    } else {
+                        var currentTab by remember { mutableStateOf(NavigationTab.DASHBOARD) }
+
+                        Scaffold(
+                            bottomBar = {
+                                NavigationBar(
+                                    containerColor = DarkSurface,
+                                    contentColor = Color.White
+                                ) {
+                                    NavigationTab.values().forEach { tab ->
+                                        NavigationBarItem(
+                                            icon = { Icon(tab.icon, contentDescription = tab.title) },
+                                            label = { Text(tab.title) },
+                                            selected = currentTab == tab,
+                                            onClick = { currentTab = tab },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = Color.Black,
+                                                selectedTextColor = AccentCyan,
+                                                indicatorColor = AccentCyan,
+                                                unselectedIconColor = Color.Gray,
+                                                unselectedTextColor = Color.Gray
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        ) { paddingValues ->
+                            when (currentTab) {
+                                NavigationTab.DASHBOARD -> DashboardScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToOpenNetwork = { currentTab = NavigationTab.OPEN_NETWORK },
+                                    onNavigateToDevices = { currentTab = NavigationTab.DEVICES },
+                                    modifier = Modifier.padding(paddingValues)
+                                )
+                                NavigationTab.OPEN_NETWORK -> OpenNetworkScreen(
+                                    viewModel = viewModel,
+                                    modifier = Modifier.padding(paddingValues)
+                                )
+                                NavigationTab.DEVICES -> DevicesScreen(
+                                    viewModel = viewModel,
+                                    modifier = Modifier.padding(paddingValues)
+                                )
+                                NavigationTab.WIFI -> WifiSettingsScreen(
+                                    viewModel = viewModel,
+                                    modifier = Modifier.padding(paddingValues)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.nokiarouter.controller.NokiaCryptoTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-15T11:16:27" hostname="DESKTOP-FO3P4TM" time="0.118">
+  <properties/>
+  <testcase name="testSha256Digest" classname="com.nokiarouter.controller.NokiaCryptoTest" time="0.02"/>
+  <testcase name="testBuildEncryptedLoginPayloadWithGeneratedRsaKey" classname="com.nokiarouter.controller.NokiaCryptoTest" time="0.097"/>
+  <testcase name="testAesEncryptDecrypt" classname="com.nokiarouter.controller.NokiaCryptoTest" time="0.001"/>
+  <testcase name="testBase64UrlEscaping" classname="com.nokiarouter.controller.NokiaCryptoTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

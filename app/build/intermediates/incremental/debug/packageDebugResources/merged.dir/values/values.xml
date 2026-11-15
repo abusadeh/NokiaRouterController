@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nokia Wi-Fi Controller</string>
+    <style name="Theme.NokiaRouterController" parent="android:Theme.Material.Light.NoActionBar"/>
+</resources>
