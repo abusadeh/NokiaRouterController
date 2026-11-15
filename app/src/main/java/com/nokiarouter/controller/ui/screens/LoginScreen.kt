@@ -37,6 +37,7 @@ fun LoginScreen(
     val routerIp by viewModel.routerIp.collectAsState()
     val username by viewModel.username.collectAsState()
     val password by viewModel.password.collectAsState()
+    val rememberCredentials by viewModel.rememberCredentials.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val statusMsg by viewModel.statusMessage.collectAsState()
     val routerModel by viewModel.routerModel.collectAsState()
@@ -81,7 +82,7 @@ fun LoginScreen(
             color = AccentCyan
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Card containing inputs
         Card(
@@ -91,7 +92,7 @@ fun LoginScreen(
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 OutlinedTextField(
                     value = routerIp,
@@ -137,6 +138,27 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Remember Credentials Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "حفظ اسم المستخدم وكلمة المرور",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                    Switch(
+                        checked = rememberCredentials,
+                        onCheckedChange = { viewModel.updateRememberCredentials(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = AccentCyan
+                        )
+                    )
+                }
+
                 if (statusMsg != null) {
                     Text(
                         text = statusMsg ?: "",
@@ -176,10 +198,10 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "تشفير محمي بتقنية RSA + AES كما هو معتمد في أجهزة Nokia",
+            text = "يتم حفظ الإعدادات وكلمة المرور محلياً على جهازك لتسهيل الدخول السريع",
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
             textAlign = TextAlign.Center

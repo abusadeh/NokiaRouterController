@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 class NokiaRouterService(
@@ -144,10 +145,10 @@ class NokiaRouterService(
                     isLoggedIn = true
                     Result.success(loginResult)
                 } else {
-                    Result.failure(Exception("Login rejected: Result ${loginResult.result}, Failure Count: ${loginResult.failureCount}"))
+                    Result.failure(Exception("كلمة المرور أو اسم المستخدم غير صحيح (رمز الخطأ: ${loginResult.result})"))
                 }
             } else {
-                Result.failure(Exception("Login HTTP error: ${response.code}"))
+                Result.failure(Exception("خطأ في الاتصال بالراوتر (HTTP ${response.code})"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -156,7 +157,6 @@ class NokiaRouterService(
 
     suspend fun getConnectedDevices(): Result<List<ConnectedDeviceItem>> = withContext(Dispatchers.IO) {
         try {
-            // lan_status_web_app.cgi?lan returns connected clients
             val request = Request.Builder()
                 .url("$baseUrl/lan_status_web_app.cgi?lan")
                 .get()
@@ -192,10 +192,14 @@ class NokiaRouterService(
     suspend fun addMacToWhitelist(macAddress: String, deviceName: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanMac = macAddress.trim().uppercase()
+            val encodedName = URLEncoder.encode(deviceName.ifBlank { "Permitted Device" }, "UTF-8")
+
+            // Format parameters matching Nokia macfilter_web_app.cgi?add_wlan
+            val params = "mac_addr=$cleanMac&device_name=$encodedName&filter_mode=allow&mac_address=$cleanMac"
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
                 csrfToken = csrfToken,
-                params = "mac_addr=$cleanMac&device_name=$deviceName&filter_mode=allow"
+                params = params
             )
 
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
@@ -216,15 +220,17 @@ class NokiaRouterService(
     suspend fun removeMacFromWhitelist(macAddress: String): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanMac = macAddress.trim().uppercase()
+            val params = "act=del_wlan&mac=$cleanMac"
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
                 csrfToken = csrfToken,
-                params = "act=del_wlan&mac=$cleanMac"
+                params = params
             )
 
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
             val reqBody = postPayload.toRequestBody(mediaType)
 
+            // Del endpoint uses act=del_wlan&mac=...
             val request = Request.Builder()
                 .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
                 .post(reqBody)
@@ -237,36 +243,56 @@ class NokiaRouterService(
         }
     }
 
+    /**
+     * Configures and creates an Open (No Password) Wi-Fi Network restricted strictly by MAC Filtering.
+     * Applies settings to both Guest Wi-Fi subsystem and WLAN Multi-SSID subsystem.
+     */
     suspend fun configureOpenMacRestrictedNetwork(
         ssidName: String,
         enable: Boolean
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            // Configure guest/secondary Wi-Fi with Security = None (Open)
-            val params = StringBuilder()
-                .append("guest_enable=").append(if (enable) "1" else "0")
-                .append("&guest_ssid=").append(java.net.URLEncoder.encode(ssidName, "UTF-8"))
+            val encodedSsid = URLEncoder.encode(ssidName.trim(), "UTF-8")
+            val isEnabledFlag = if (enable) "1" else "0"
+
+            // 1. Submit to Guest Network subsystem: ConfigWhwGuest
+            val guestParams = StringBuilder()
+                .append("guest_enable=").append(isEnabledFlag)
+                .append("&guest_ssid=").append(encodedSsid)
                 .append("&security_mode=None")
+                .append("&broadcast=1")
                 .append("&mac_filter_enable=1")
                 .append("&mac_filter_mode=allow")
                 .toString()
 
-            val postPayload = NokiaCrypto.encryptPostWithCsrf(
+            val guestPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
                 csrfToken = csrfToken,
-                params = params
+                params = guestParams
             )
 
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
-            val reqBody = postPayload.toRequestBody(mediaType)
-
-            val request = Request.Builder()
+            val guestReq = Request.Builder()
                 .url("$baseUrl/wlan_config_guest_web_app.cgi?ConfigWhwGuest")
-                .post(reqBody)
+                .post(guestPayload.toRequestBody(mediaType))
                 .build()
 
-            val response = client.newCall(request).execute()
-            Result.success(response.isSuccessful)
+            val guestRes = client.newCall(guestReq).execute()
+
+            // 2. Also ensure MAC filtering is globally active for WLAN in allowlist mode
+            val filterGlobalParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
+            val filterPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = filterGlobalParams
+            )
+            val filterReq = Request.Builder()
+                .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
+                .post(filterPayload.toRequestBody(mediaType))
+                .build()
+            client.newCall(filterReq).execute()
+
+            Result.success(guestRes.isSuccessful)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -333,11 +359,6 @@ class NokiaRouterService(
         val list = mutableListOf<ConnectedDeviceItem>()
         if (json.isEmpty()) return list
         try {
-            // Flexible extraction for router JSON devices structure
-            val macRegex = "([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})".toRegex()
-            val ipRegex = "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})".toRegex()
-
-            // If parsed with Gson generic map or structure
             val root = gson.fromJson(json, Map::class.java)
             val clientList = (root["client_list"] ?: root["lan_list"] ?: root["wlan_list"]) as? List<*>
             if (clientList != null) {
@@ -352,7 +373,7 @@ class NokiaRouterService(
                 }
             }
         } catch (e: Exception) {
-            // Fallback: parse raw occurrences if structure varies
+            // Handled
         }
         return list
     }

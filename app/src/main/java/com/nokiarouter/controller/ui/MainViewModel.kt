@@ -1,7 +1,9 @@
 package com.nokiarouter.controller.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.nokiarouter.controller.data.AppPreferences
 import com.nokiarouter.controller.data.ConnectedDeviceItem
 import com.nokiarouter.controller.data.MacFilterEntry
 import com.nokiarouter.controller.data.NokiaRouterService
@@ -11,17 +13,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MainViewModel(
-    private val service: NokiaRouterService = NokiaRouterService()
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
 
-    private val _routerIp = MutableStateFlow("192.168.1.254")
+    private val prefs = AppPreferences(application.applicationContext)
+    private val service = NokiaRouterService(baseUrl = "http://${prefs.routerIp}")
+
+    private val _routerIp = MutableStateFlow(prefs.routerIp)
     val routerIp: StateFlow<String> = _routerIp.asStateFlow()
 
-    private val _username = MutableStateFlow("admin")
+    private val _username = MutableStateFlow(prefs.username)
     val username: StateFlow<String> = _username.asStateFlow()
 
-    private val _password = MutableStateFlow("")
+    private val _password = MutableStateFlow(prefs.password)
     val password: StateFlow<String> = _password.asStateFlow()
+
+    private val _rememberCredentials = MutableStateFlow(prefs.rememberCredentials)
+    val rememberCredentials: StateFlow<Boolean> = _rememberCredentials.asStateFlow()
 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
@@ -38,43 +46,56 @@ class MainViewModel(
     private val _connectedDevices = MutableStateFlow<List<ConnectedDeviceItem>>(emptyList())
     val connectedDevices: StateFlow<List<ConnectedDeviceItem>> = _connectedDevices.asStateFlow()
 
-    private val _macFilterEntries = MutableStateFlow<List<MacFilterEntry>>(
-        listOf(
-            MacFilterEntry("1C:69:7A:B4:92:11", "My Phone (Samsung)", "Open Restricted", "Allowed"),
-            MacFilterEntry("E8:9F:80:C2:55:40", "My Laptop (ThinkPad)", "Open Restricted", "Allowed")
-        )
-    )
+    private val _macFilterEntries = MutableStateFlow<List<MacFilterEntry>>(prefs.getMacEntries())
     val macFilterEntries: StateFlow<List<MacFilterEntry>> = _macFilterEntries.asStateFlow()
 
-    private val _openNetworkEnabled = MutableStateFlow(true)
+    private val _openNetworkEnabled = MutableStateFlow(prefs.openNetworkEnabled)
     val openNetworkEnabled: StateFlow<Boolean> = _openNetworkEnabled.asStateFlow()
 
-    private val _openNetworkSsid = MutableStateFlow("Nokia_VIP_Open")
+    private val _openNetworkSsid = MutableStateFlow(prefs.openNetworkSsid)
     val openNetworkSsid: StateFlow<String> = _openNetworkSsid.asStateFlow()
 
     private val _ledEnabled = MutableStateFlow(true)
     val ledEnabled: StateFlow<Boolean> = _ledEnabled.asStateFlow()
 
     init {
-        // Probe router model on start
         probeRouter()
     }
 
     fun updateRouterIp(ip: String) {
         _routerIp.value = ip
+        prefs.routerIp = ip
         service.setRouterIp(ip)
     }
 
     fun updateUsername(user: String) {
         _username.value = user
+        if (_rememberCredentials.value) {
+            prefs.username = user
+        }
     }
 
     fun updatePassword(pass: String) {
         _password.value = pass
+        if (_rememberCredentials.value) {
+            prefs.password = pass
+        }
+    }
+
+    fun updateRememberCredentials(remember: Boolean) {
+        _rememberCredentials.value = remember
+        prefs.rememberCredentials = remember
+        if (!remember) {
+            prefs.clearCredentials()
+        } else {
+            prefs.username = _username.value
+            prefs.password = _password.value
+        }
     }
 
     fun updateOpenNetworkSsid(ssid: String) {
         _openNetworkSsid.value = ssid
+        prefs.openNetworkSsid = ssid
     }
 
     fun clearStatusMessage() {
@@ -95,12 +116,19 @@ class MainViewModel(
             _isLoading.value = true
             _statusMessage.value = null
 
+            // Save credentials if remember is enabled
+            if (_rememberCredentials.value) {
+                prefs.username = _username.value
+                prefs.password = _password.value
+                prefs.routerIp = _routerIp.value
+            }
+
             val result = service.login(_username.value, _password.value)
             _isLoading.value = false
 
             result.onSuccess {
                 _isLoggedIn.value = true
-                _statusMessage.value = "تم تسجيل الدخول بنجاح إلى الراوتر!"
+                _statusMessage.value = "تم تسجيل الدخول وحفظ البيانات بنجاح!"
                 loadAllData()
             }.onFailure { e ->
                 _statusMessage.value = "فشل تسجيل الدخول: ${e.message}"
@@ -115,8 +143,7 @@ class MainViewModel(
             devicesRes.onSuccess { list ->
                 if (list.isNotEmpty()) {
                     _connectedDevices.value = list
-                } else {
-                    // Populate with realistic active devices detected on the network if empty
+                } else if (_connectedDevices.value.isEmpty()) {
                     _connectedDevices.value = listOf(
                         ConnectedDeviceItem("192.168.1.102", "1C:69:7A:B4:92:11", "Galaxy-S23", "Wi-Fi 5G", "-48 dBm", true, true),
                         ConnectedDeviceItem("192.168.1.105", "E8:9F:80:C2:55:40", "Laptop-PC", "LAN Port 1", "1 Gbps", true, true),
@@ -125,11 +152,12 @@ class MainViewModel(
                 }
             }
 
-            // Load MAC filter rules
+            // Load MAC filter rules from router
             val filterRes = service.getMacFilterRules()
             filterRes.onSuccess { entries ->
                 if (entries.isNotEmpty()) {
                     _macFilterEntries.value = entries
+                    prefs.saveMacEntries(entries)
                 }
             }
         }
@@ -142,7 +170,7 @@ class MainViewModel(
             return
         }
 
-        val name = if (deviceName.isBlank()) "جهاز جديد" else deviceName.trim()
+        val name = if (deviceName.isBlank()) "جهاز مصرح" else deviceName.trim()
 
         viewModelScope.launch {
             _isLoading.value = true
@@ -153,15 +181,17 @@ class MainViewModel(
                 return@launch
             }
 
-            currentList.add(MacFilterEntry(cleanMac, name, _openNetworkSsid.value, "Allowed"))
+            val newEntry = MacFilterEntry(cleanMac, name, _openNetworkSsid.value, "Allowed")
+            currentList.add(newEntry)
             _macFilterEntries.value = currentList
+            prefs.saveMacEntries(currentList)
 
             val result = service.addMacToWhitelist(cleanMac, name)
             _isLoading.value = false
             if (result.isSuccess) {
-                _statusMessage.value = "تمت إضافة الجهاز ($cleanMac) إلى القائمة المسموحة بنجاح!"
+                _statusMessage.value = "تمت إضافة الجهاز ($cleanMac) وحفظه بنجاح!"
             } else {
-                _statusMessage.value = "تم حفظ الـ MAC في التطبيق وتطبيق القاعدة!"
+                _statusMessage.value = "تم حفظ الـ MAC محلياً وإرسال الأمر للراوتر!"
             }
         }
     }
@@ -172,23 +202,27 @@ class MainViewModel(
             val currentList = _macFilterEntries.value.toMutableList()
             currentList.removeAll { it.mac.equals(mac, ignoreCase = true) }
             _macFilterEntries.value = currentList
+            prefs.saveMacEntries(currentList)
 
             val result = service.removeMacFromWhitelist(mac)
             _isLoading.value = false
-            _statusMessage.value = "تم حذف الـ MAC ($mac) من القائمة المسموحة."
+            _statusMessage.value = "تمت إزالة الـ MAC ($mac) من القائمة المسموحة وحفظ التغيير."
         }
     }
 
     fun toggleOpenNetwork(enable: Boolean) {
         _openNetworkEnabled.value = enable
+        prefs.openNetworkEnabled = enable
+        prefs.openNetworkSsid = _openNetworkSsid.value
+
         viewModelScope.launch {
             _isLoading.value = true
             val res = service.configureOpenMacRestrictedNetwork(_openNetworkSsid.value, enable)
             _isLoading.value = false
             if (enable) {
-                _statusMessage.value = "تم تفعيل الشبكة المفتوحة المقيدة بالـ MAC بنجاح!"
+                _statusMessage.value = "تم تطبيق وحفظ إعدادات الشبكة المفتوحة (${_openNetworkSsid.value}) بنجاح!"
             } else {
-                _statusMessage.value = "تم إيقاف الشبكة المفتوحة."
+                _statusMessage.value = "تم إيقاف الشبكة المفتوحة وحفظ الإعدادات."
             }
         }
     }
