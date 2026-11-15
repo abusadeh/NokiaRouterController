@@ -87,4 +87,24 @@ class AppPreferences(context: Context) {
             .remove(KEY_PASSWORD)
             .apply()
     }
+
+    fun setDeviceNickname(mac: String, nickname: String) {
+        val nicknames = getDeviceNicknames().toMutableMap()
+        if (nickname.isBlank()) {
+            nicknames.remove(mac.lowercase())
+        } else {
+            nicknames[mac.lowercase()] = nickname.trim()
+        }
+        prefs.edit().putString("key_device_nicknames", gson.toJson(nicknames)).apply()
+    }
+
+    fun getDeviceNicknames(): Map<String, String> {
+        val json = prefs.getString("key_device_nicknames", null) ?: return emptyMap()
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            gson.fromJson(json, type) ?: emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
 }

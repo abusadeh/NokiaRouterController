@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.android)
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -34,8 +34,73 @@ fun DashboardScreen(
     val openNetworkSsid by viewModel.openNetworkSsid.collectAsState()
     val ledEnabled by viewModel.ledEnabled.collectAsState()
     val statusMsg by viewModel.statusMessage.collectAsState()
+    val wanInfo by viewModel.wanStatusInfo.collectAsState()
+    val wifiNetworks by viewModel.wifiNetworks.collectAsState()
+    val timerRemaining by viewModel.openNetworkTimerRemaining.collectAsState()
 
     var showRebootDialog by remember { mutableStateOf(false) }
+    var selectedNetworkForQr by remember { mutableStateOf<com.nokiarouter.controller.data.WifiNetworkItem?>(null) }
+    var showTimerDialog by remember { mutableStateOf(false) }
+
+    if (selectedNetworkForQr != null) {
+        WifiQrDialog(
+            network = selectedNetworkForQr!!,
+            onDismiss = { selectedNetworkForQr = null }
+        )
+    }
+
+    if (showTimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showTimerDialog = false },
+            title = { Text("مؤقت إيقاف الشبكة المفتوحة") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("اختر المدة التي تريد أن تظل الشبكة المفتوحة تعمل خلالها قبل إيقافها تلقائياً:")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.setOpenNetworkTimer(30)
+                                showTimerDialog = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("30 دقيقة", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.setOpenNetworkTimer(60)
+                                showTimerDialog = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("ساعة", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.setOpenNetworkTimer(120)
+                                showTimerDialog = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("ساعتان", fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.setOpenNetworkTimer(0)
+                    showTimerDialog = false
+                }) {
+                    Text("إلغاء المؤقت", color = DangerRed)
+                }
+            }
+        )
+    }
 
     if (showRebootDialog) {
         AlertDialog(
@@ -167,6 +232,102 @@ fun DashboardScreen(
             }
         }
 
+        // Internet WAN & Optical Fiber Status Card
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.2f),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = SuccessGreen)
+                                }
+                            }
+
+                            Column {
+                                Text(
+                                    text = "حالة اتصال الإنترنت والألياف الضوئية",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = "IP الخارجي: ${wanInfo.externalIp}",
+                                    color = AccentCyan,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SuccessGreen.copy(alpha = 0.2f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).background(SuccessGreen, CircleShape))
+                                Text("متصل بالإنترنت", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = DarkSurfaceCard)
+
+                    // Metrics Grid (Traffic & Link)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("استهلاك التحميل:", color = Color.Gray, fontSize = 11.sp)
+                            Text("⬇ ${wanInfo.bytesReceivedFormatted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        Column {
+                            Text("استهلاك الرفع:", color = Color.Gray, fontSize = 11.sp)
+                            Text("⬆ ${wanInfo.bytesSentFormatted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        Column {
+                            Text("سرعة الفايبر (GPON):", color = Color.Gray, fontSize = 11.sp)
+                            Text(wanInfo.maxBitRate, color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = DarkSurfaceCard,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("مدة التشغيل المتواصل:", color = Color.Gray, fontSize = 11.sp)
+                            Text(wanInfo.uptimeFormatted, color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+        }
+
         // Special Open Network Card
         item {
             Card(
@@ -222,6 +383,28 @@ fun DashboardScreen(
                         )
                     }
 
+                    if (timerRemaining != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = WarningOrange.copy(alpha = 0.2f),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.Timer, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "مؤقت نشط: ستتوقف الشبكة المفتوحة تلقائياً بعد $timerRemaining دقيقة",
+                                    color = WarningOrange,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
@@ -232,6 +415,42 @@ fun DashboardScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                selectedNetworkForQr = wifiNetworks.find { it.ssid.equals(openNetworkSsid, ignoreCase = true) }
+                                    ?: com.nokiarouter.controller.data.WifiNetworkItem(
+                                        ssid = openNetworkSsid,
+                                        band = "2.4 GHz",
+                                        securityMode = "None",
+                                        password = "",
+                                        isGuestOrOpen = true
+                                    )
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("رمز QR", fontSize = 12.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = { showTimerDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (timerRemaining != null) "تعديل المؤقت" else "مؤقت زمني", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedButton(
                         onClick = onNavigateToOpenNetwork,
                         modifier = Modifier.fillMaxWidth(),
@@ -239,7 +458,7 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("إدارة الـ MAC والشبكة المفتوحة")
+                        Text("إدارة أجهزة الـ MAC المسموحة")
                     }
                 }
             }

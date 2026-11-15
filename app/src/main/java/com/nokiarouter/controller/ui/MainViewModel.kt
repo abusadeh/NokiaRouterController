@@ -58,6 +58,13 @@ class MainViewModel(
     private val _ledEnabled = MutableStateFlow(true)
     val ledEnabled: StateFlow<Boolean> = _ledEnabled.asStateFlow()
 
+    private val _wanStatusInfo = MutableStateFlow(WanStatusInfo())
+    val wanStatusInfo: StateFlow<WanStatusInfo> = _wanStatusInfo.asStateFlow()
+
+    private val _openNetworkTimerRemaining = MutableStateFlow<Int?>(null)
+    val openNetworkTimerRemaining: StateFlow<Int?> = _openNetworkTimerRemaining.asStateFlow()
+    private var timerJob: kotlinx.coroutines.Job? = null
+
     init {
         probeRouter()
         // If password is saved, attempt auto login / sync
@@ -160,10 +167,15 @@ class MainViewModel(
                 }
             }
 
-            // 2. Load connected devices
+            // 2. Load connected devices & apply user nicknames
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
-                _connectedDevices.value = list
+                val nicknames = prefs.getDeviceNicknames()
+                val updated = list.map { dev ->
+                    val nick = nicknames[dev.mac.lowercase()]
+                    if (!nick.isNullOrBlank()) dev.copy(hostName = nick) else dev
+                }
+                _connectedDevices.value = updated
             }
 
             // 3. Load MAC filter rules from router
@@ -174,6 +186,13 @@ class MainViewModel(
                     prefs.saveMacEntries(entries)
                 }
             }
+
+            // 4. Fetch WAN & PON connection health
+            val wanRes = service.fetchWanAndPonStatus()
+            wanRes.onSuccess { info ->
+                _wanStatusInfo.value = info
+            }
+
             _isLoading.value = false
         }
     }
@@ -183,12 +202,59 @@ class MainViewModel(
             _isLoading.value = true
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
-                _connectedDevices.value = list
+                val nicknames = prefs.getDeviceNicknames()
+                val updated = list.map { dev ->
+                    val nick = nicknames[dev.mac.lowercase()]
+                    if (!nick.isNullOrBlank()) dev.copy(hostName = nick) else dev
+                }
+                _connectedDevices.value = updated
                 _statusMessage.value = "تم اكتشاف ${list.size} جهاز متصل بنجاح!"
             }.onFailure { e ->
                 _statusMessage.value = "تعذر تحديث الأجهزة: ${e.message}"
             }
             _isLoading.value = false
+        }
+    }
+
+    fun renameDevice(mac: String, newName: String) {
+        prefs.setDeviceNickname(mac, newName)
+        _connectedDevices.value = _connectedDevices.value.map { dev ->
+            if (dev.mac.equals(mac, ignoreCase = true)) dev.copy(hostName = newName.ifBlank { dev.hostName }) else dev
+        }
+        _statusMessage.value = "تم حفظ الاسم المخصص للجهاز بنجاح!"
+    }
+
+    fun blockDevice(mac: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            // Remove from whitelist if present
+            removeMacFromWhitelist(mac)
+            _statusMessage.value = "تم حظر الجهاز وإزالته من الشبكة بنجاح ($mac)!"
+            _isLoading.value = false
+        }
+    }
+
+    fun setOpenNetworkTimer(minutes: Int) {
+        timerJob?.cancel()
+        if (minutes <= 0) {
+            _openNetworkTimerRemaining.value = null
+            return
+        }
+
+        _openNetworkTimerRemaining.value = minutes
+        _statusMessage.value = "تم ضبط مؤقت الشبكة المفتوحة: ستتوقف تلقائياً بعد $minutes دقيقة"
+
+        timerJob = viewModelScope.launch {
+            var remaining = minutes
+            while (remaining > 0) {
+                kotlinx.coroutines.delay(60_000L) // 1 minute
+                remaining--
+                _openNetworkTimerRemaining.value = remaining
+            }
+            // Auto turn off
+            toggleOpenNetwork(false)
+            _openNetworkTimerRemaining.value = null
+            _statusMessage.value = "انتهى وقت المؤقت! تم إيقاف الشبكة المفتوحة تلقائياً للحماية."
         }
     }
 

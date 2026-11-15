@@ -40,6 +40,14 @@ fun WifiSettingsScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingNetwork by remember { mutableStateOf<WifiNetworkItem?>(null) }
+    var qrNetwork by remember { mutableStateOf<WifiNetworkItem?>(null) }
+
+    if (qrNetwork != null) {
+        WifiQrDialog(
+            network = qrNetwork!!,
+            onDismiss = { qrNetwork = null }
+        )
+    }
 
     // Dialog for adding a new Wi-Fi network
     if (showAddDialog) {
@@ -288,6 +296,9 @@ fun WifiSettingsScreen(
                 onEdit = {
                     editingNetwork = network
                 },
+                onShowQr = {
+                    qrNetwork = network
+                },
                 onCopyPassword = {
                     if (network.password.isNotEmpty()) {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -305,6 +316,7 @@ fun WifiNetworkCard(
     network: WifiNetworkItem,
     onToggleEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
+    onShowQr: () -> Unit,
     onCopyPassword: () -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
@@ -438,6 +450,18 @@ fun WifiNetworkCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = onShowQr,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("رمز QR", fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 OutlinedButton(
                     onClick = onEdit,
                     shape = RoundedCornerShape(8.dp),

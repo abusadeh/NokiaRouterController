@@ -400,6 +400,82 @@ class NokiaRouterService(
         }
     }
 
+    suspend fun fetchWanAndPonStatus(): Result<WanStatusInfo> = withContext(Dispatchers.IO) {
+        try {
+            var extIp = "غير متصل"
+            var connStatus = "Connected"
+            var uptimeSec = 0L
+            var rxBytes = 0L
+            var txBytes = 0L
+            var dns = ""
+
+            // 1. Fetch WAN IPv4 info
+            try {
+                val req = Request.Builder().url("$baseUrl/show_wan_status_web_app.cgi?ipv4").get().build()
+                val raw = client.newCall(req).execute().body?.string().orEmpty()
+                val dec = decryptIfEncrypted(raw)
+                val root = gson.fromJson(dec, Map::class.java)
+                val conns = root["wan_conns"] as? List<*>
+                val firstConn = conns?.firstOrNull() as? Map<*, *>
+                val pppList = firstConn?.get("pppConns") as? List<*>
+                val ppp = pppList?.firstOrNull() as? Map<*, *>
+
+                extIp = ppp?.get("ExternalIPAddress")?.toString() ?: extIp
+                connStatus = ppp?.get("ConnectionStatus")?.toString() ?: connStatus
+                uptimeSec = (ppp?.get("Uptime") as? Number)?.toLong() 
+                    ?: ppp?.get("Uptime")?.toString()?.toDoubleOrNull()?.toLong() ?: 0L
+                rxBytes = (ppp?.get("EthernetBytesReceived") as? Number)?.toLong() 
+                    ?: ppp?.get("EthernetBytesReceived")?.toString()?.toDoubleOrNull()?.toLong() ?: 0L
+                txBytes = (ppp?.get("EthernetBytesSent") as? Number)?.toLong() 
+                    ?: ppp?.get("EthernetBytesSent")?.toString()?.toDoubleOrNull()?.toLong() ?: 0L
+                dns = ppp?.get("DNSServers")?.toString() ?: ""
+            } catch (_: Exception) {}
+
+            // 2. Fetch PON status
+            var ponStatus = "Up"
+            var maxBitRate = "2.5 Gbps"
+            try {
+                val req = Request.Builder().url("$baseUrl/pon_status_web_app.cgi").get().build()
+                val raw = client.newCall(req).execute().body?.string().orEmpty()
+                val dec = decryptIfEncrypted(raw)
+                val root = gson.fromJson(dec, Map::class.java)
+                ponStatus = root["Status"]?.toString() ?: ponStatus
+                val bitrate = root["MaxBitRate"]?.toString()
+                if (bitrate != null && bitrate.isNotEmpty()) {
+                    maxBitRate = "$bitrate Mbps"
+                }
+            } catch (_: Exception) {}
+
+            fun formatBytes(bytes: Long): String {
+                return when {
+                    bytes >= 1_073_741_824L -> String.format(java.util.Locale.US, "%.2f GB", bytes / 1_073_741_824.0)
+                    bytes >= 1_048_576L -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_048_576.0)
+                    else -> String.format(java.util.Locale.US, "%.0f KB", bytes / 1024.0)
+                }
+            }
+
+            fun formatUptime(seconds: Long): String {
+                val hours = seconds / 3600
+                val minutes = (seconds % 3600) / 60
+                return if (hours > 0) "$hours ساعة و $minutes دقيقة" else "$minutes دقيقة"
+            }
+
+            val info = WanStatusInfo(
+                externalIp = extIp,
+                status = connStatus,
+                uptimeFormatted = formatUptime(uptimeSec),
+                bytesReceivedFormatted = formatBytes(rxBytes),
+                bytesSentFormatted = formatBytes(txBytes),
+                dnsServers = dns,
+                ponStatus = ponStatus,
+                maxBitRate = maxBitRate
+            )
+            Result.success(info)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getMacFilterRules(): Result<List<MacFilterEntry>> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()

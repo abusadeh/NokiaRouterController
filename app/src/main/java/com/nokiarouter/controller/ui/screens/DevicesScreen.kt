@@ -1,6 +1,7 @@
 package com.nokiarouter.controller.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +31,97 @@ fun DevicesScreen(
     val devices by viewModel.connectedDevices.collectAsState()
     val macList by viewModel.macFilterEntries.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    var searchQuery by remember { mutableStateOf("") }
+    var renamingDevice by remember { mutableStateOf<ConnectedDeviceItem?>(null) }
+    var blockingDevice by remember { mutableStateOf<ConnectedDeviceItem?>(null) }
+
+    // Rename Dialog
+    if (renamingDevice != null) {
+        val dev = renamingDevice!!
+        var newName by remember { mutableStateOf(dev.hostName) }
+        AlertDialog(
+            onDismissRequest = { renamingDevice = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = AccentCyan)
+                    Text("إعادة تسمية الجهاز")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("اختر اسماً مميزاً وسهلاً لهذا الجهاز (مثلاً: جوال أحمد، شاشة الصالة):", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("اسم الجهاز المخصص") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("MAC: ${dev.mac}", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.renameDevice(dev.mac, newName)
+                        renamingDevice = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                ) {
+                    Text("حفظ الاسم", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { renamingDevice = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Block Confirmation Dialog
+    if (blockingDevice != null) {
+        val dev = blockingDevice!!
+        AlertDialog(
+            onDismissRequest = { blockingDevice = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed)
+                    Text("تأكيد حظر الجهاز")
+                }
+            },
+            text = {
+                Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وإزالته من قائمة الأجهزة المسموحة في الشبكة المفتوحة؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.blockDevice(dev.mac)
+                        blockingDevice = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
+                ) {
+                    Text("حظر وإزالة فورية")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { blockingDevice = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    val filteredDevices = remember(devices, searchQuery) {
+        if (searchQuery.isBlank()) devices else {
+            devices.filter {
+                it.hostName.contains(searchQuery, ignoreCase = true) ||
+                it.ip.contains(searchQuery, ignoreCase = true) ||
+                it.mac.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -74,7 +166,35 @@ fun DevicesScreen(
             }
         }
 
-        if (devices.isEmpty()) {
+        // Search Filter Field
+        if (devices.isNotEmpty()) {
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("بحث عن جهاز بالاسم، الـ IP، أو الـ MAC...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AccentCyan) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = DarkSurfaceCard,
+                        focusedContainerColor = DarkSurface,
+                        unfocusedContainerColor = DarkSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        if (filteredDevices.isEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -99,7 +219,7 @@ fun DevicesScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
-                                "لم يتم العثور على أجهزة متصلة أو يلزم التحديث",
+                                if (searchQuery.isNotEmpty()) "لا توجد نتائج مطابقة لبحثك" else "لم يتم العثور على أجهزة متصلة أو يلزم التحديث",
                                 color = Color.LightGray,
                                 fontSize = 14.sp
                             )
@@ -117,13 +237,19 @@ fun DevicesScreen(
                 }
             }
         } else {
-            items(devices) { device ->
+            items(filteredDevices) { device ->
                 val isWhitelisted = macList.any { it.mac.equals(device.mac, ignoreCase = true) }
                 DeviceItemCard(
                     device = device,
                     isWhitelisted = isWhitelisted,
                     onAddToWhitelist = {
                         viewModel.addMacToWhitelist(device.mac, device.hostName)
+                    },
+                    onRename = {
+                        renamingDevice = device
+                    },
+                    onBlock = {
+                        blockingDevice = device
                     }
                 )
             }
@@ -135,7 +261,9 @@ fun DevicesScreen(
 fun DeviceItemCard(
     device: ConnectedDeviceItem,
     isWhitelisted: Boolean,
-    onAddToWhitelist: () -> Unit
+    onAddToWhitelist: () -> Unit,
+    onRename: () -> Unit,
+    onBlock: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -172,12 +300,22 @@ fun DeviceItemCard(
                     }
 
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Text(
                                 text = device.hostName,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
-                                fontSize = 15.sp
+                                fontSize = 15.sp,
+                                modifier = Modifier.clickable { onRename() }
+                            )
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "تعديل الاسم",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(14.dp).clickable { onRename() }
                             )
                             // Online indicator dot
                             Box(
@@ -240,29 +378,43 @@ fun DeviceItemCard(
                     )
                 }
 
-                if (isWhitelisted) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SuccessGreen.copy(alpha = 0.2f)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (isWhitelisted) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SuccessGreen.copy(alpha = 0.2f)
                         ) {
-                            Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
-                            Text("مسموح له في الشبكة المفتوحة", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
+                                Text("مسموح", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = onAddToWhitelist,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("سماح بالشبكة", fontSize = 11.sp)
                         }
                     }
-                } else {
+
+                    // Block Device Button
                     OutlinedButton(
-                        onClick = onAddToWhitelist,
+                        onClick = onBlock,
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("إضافة للشبكة المفتوحة", fontSize = 12.sp)
+                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(14.dp), tint = DangerRed)
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("حظر", fontSize = 11.sp, color = DangerRed)
                     }
                 }
             }

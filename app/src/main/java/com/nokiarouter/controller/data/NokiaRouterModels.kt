@@ -50,3 +50,14 @@ data class WifiNetworkItem(
     val channel: String = "Auto",
     val isGuestOrOpen: Boolean = false
 )
+
+data class WanStatusInfo(
+    val externalIp: String = "غير متصل",
+    val status: String = "Connected",
+    val uptimeFormatted: String = "0 دقيقة",
+    val bytesReceivedFormatted: String = "0 MB",
+    val bytesSentFormatted: String = "0 MB",
+    val dnsServers: String = "",
+    val ponStatus: String = "Up",
+    val maxBitRate: String = "2.5 Gbps"
+)
