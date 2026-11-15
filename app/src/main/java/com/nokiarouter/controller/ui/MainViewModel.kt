@@ -217,7 +217,12 @@ class MainViewModel(
                         isBlocked = isBlocked
                     )
                 }
-                _connectedDevices.value = updated
+                val sorted = updated.sortedWith(
+                    compareByDescending<ConnectedDeviceItem> { it.isOnline }
+                        .thenBy { it.isBlocked }
+                        .thenBy { it.hostName.lowercase() }
+                )
+                _connectedDevices.value = sorted
                 _statusMessage.value = "تم اكتشاف ${list.size} جهاز متصل بنجاح!"
             }.onFailure { e ->
                 _statusMessage.value = "تعذر تحديث الأجهزة: ${e.message}"
@@ -234,13 +239,18 @@ class MainViewModel(
         _statusMessage.value = "تم حفظ الاسم المخصص للجهاز بنجاح!"
     }
 
-    fun blockDevice(mac: String, oid: Int? = null) {
+    fun blockDevice(device: ConnectedDeviceItem) {
         viewModelScope.launch {
             _isLoading.value = true
-            val res = service.blockDeviceOnRouter(mac, "Blocked Device", oid)
+            val res = service.blockDeviceOnRouter(
+                macAddress = device.mac,
+                ipAddress = device.ip,
+                deviceName = device.hostName,
+                oid = device.oid
+            )
             if (res.isSuccess) {
-                prefs.addBlockedMac(mac)
-                _statusMessage.value = "تم حظر الجهاز وطرد اتصاله من الراوتر بنجاح ($mac)!"
+                prefs.addBlockedMac(device.mac)
+                _statusMessage.value = "تم حظر جهاز (${device.hostName}) وقطع اتصاله بالكامل بنجاح!"
                 refreshConnectedDevices()
             } else {
                 _statusMessage.value = "فشل تنفيذ أمر الحظر على الراوتر"
@@ -249,18 +259,58 @@ class MainViewModel(
         }
     }
 
-    fun unblockDevice(mac: String) {
+    fun blockDevice(mac: String, oid: Int? = null) {
+        val found = _connectedDevices.value.find { it.mac.equals(mac, ignoreCase = true) }
+        if (found != null) {
+            blockDevice(found)
+        } else {
+            viewModelScope.launch {
+                _isLoading.value = true
+                val res = service.blockDeviceOnRouter(mac, null, "Blocked Device", oid)
+                if (res.isSuccess) {
+                    prefs.addBlockedMac(mac)
+                    _statusMessage.value = "تم حظر الجهاز وطرد اتصاله من الراوتر بنجاح ($mac)!"
+                    refreshConnectedDevices()
+                } else {
+                    _statusMessage.value = "فشل تنفيذ أمر الحظر على الراوتر"
+                }
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun unblockDevice(device: ConnectedDeviceItem) {
         viewModelScope.launch {
             _isLoading.value = true
-            val res = service.unblockDeviceOnRouter(mac)
+            val res = service.unblockDeviceOnRouter(device.mac, device.ip)
             if (res.isSuccess) {
-                prefs.removeBlockedMac(mac)
-                _statusMessage.value = "تم إلغاء حظر الجهاز ($mac) بنجاح وإعادة السماح له!"
+                prefs.removeBlockedMac(device.mac)
+                _statusMessage.value = "تم إلغاء حظر جهاز (${device.hostName}) بنجاح وإعادة تفعيل اتصاله!"
                 refreshConnectedDevices()
             } else {
                 _statusMessage.value = "فشل إلغاء الحظر على الراوتر"
             }
             _isLoading.value = false
+        }
+    }
+
+    fun unblockDevice(mac: String) {
+        val found = _connectedDevices.value.find { it.mac.equals(mac, ignoreCase = true) }
+        if (found != null) {
+            unblockDevice(found)
+        } else {
+            viewModelScope.launch {
+                _isLoading.value = true
+                val res = service.unblockDeviceOnRouter(mac, null)
+                if (res.isSuccess) {
+                    prefs.removeBlockedMac(mac)
+                    _statusMessage.value = "تم إلغاء حظر الجهاز ($mac) بنجاح وإعادة السماح له!"
+                    refreshConnectedDevices()
+                } else {
+                    _statusMessage.value = "فشل إلغاء الحظر على الراوتر"
+                }
+                _isLoading.value = false
+            }
         }
     }
 

@@ -92,12 +92,16 @@ fun DevicesScreen(
                 }
             },
             text = {
-                Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وقطع اتصاله بالكامل عن الراوتر والواي فاي؟")
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وقطع اتصاله بالكامل عن الراوتر والإنترنت؟")
+                    Text("IP: ${dev.ip}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = AccentCyan)
+                    Text("MAC: ${dev.mac}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.Gray)
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.blockDevice(dev.mac, dev.oid)
+                        viewModel.blockDevice(dev)
                         blockingDevice = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
@@ -252,7 +256,7 @@ fun DevicesScreen(
                         blockingDevice = device
                     },
                     onUnblock = {
-                        viewModel.unblockDevice(device.mac)
+                        viewModel.unblockDevice(device)
                     }
                 )
             }
