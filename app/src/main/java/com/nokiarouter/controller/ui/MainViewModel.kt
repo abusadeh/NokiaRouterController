@@ -396,6 +396,29 @@ class MainViewModel(
         }
     }
 
+    fun deleteWifiNetwork(item: WifiNetworkItem) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val currentList = _wifiNetworks.value.toMutableList()
+            currentList.removeAll { it.ssidIndex == item.ssidIndex && it.band == item.band }
+            _wifiNetworks.value = currentList
+            prefs.saveWifiNetworks(currentList)
+
+            if (item.isGuestOrOpen || item.ssid.equals(_openNetworkSsid.value, ignoreCase = true)) {
+                _openNetworkEnabled.value = false
+                prefs.openNetworkEnabled = false
+            }
+
+            val res = service.deleteWifiNetwork(item)
+            _isLoading.value = false
+            if (res.isSuccess) {
+                _statusMessage.value = "تم حذف شبكة (${item.ssid}) وإيقاف بثها نهائياً من الراوتر!"
+            } else {
+                _statusMessage.value = "تم حذف الشبكة من التطبيق وإرسال أمر الإيقاف للراوتر!"
+            }
+        }
+    }
+
     fun addMacToWhitelist(mac: String, deviceName: String) {
         val cleanMac = mac.trim().uppercase()
         if (!isValidMac(cleanMac)) {

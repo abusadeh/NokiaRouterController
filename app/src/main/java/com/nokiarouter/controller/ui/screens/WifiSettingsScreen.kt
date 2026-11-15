@@ -40,12 +40,61 @@ fun WifiSettingsScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingNetwork by remember { mutableStateOf<WifiNetworkItem?>(null) }
+    var networkToDelete by remember { mutableStateOf<WifiNetworkItem?>(null) }
     var qrNetwork by remember { mutableStateOf<WifiNetworkItem?>(null) }
 
     if (qrNetwork != null) {
         WifiQrDialog(
             network = qrNetwork!!,
             onDismiss = { qrNetwork = null }
+        )
+    }
+
+    // Dialog for confirming Wi-Fi network deletion
+    if (networkToDelete != null) {
+        val net = networkToDelete!!
+        val isPrimary = net.ssidIndex == 1 || net.ssidIndex == 5
+        AlertDialog(
+            onDismissRequest = { networkToDelete = null },
+            icon = {
+                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp))
+            },
+            title = {
+                Text(
+                    text = if (isPrimary) "تعطيل وحذف الشبكة الرئيسية" else "تأكيد حذف شبكة الواي فاي",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (isPrimary) {
+                            "الشبكة '${net.ssid}' هي الشبكة الأساسية لتردد ${net.band}. حذفها سيؤدي إلى تعطيل بث الواي فاي ومسح إعداداتها من الراوتر."
+                        } else {
+                            "هل أنت متأكد من رغبتك في حذف شبكة '${net.ssid}' (${net.band})؟ سيتم إيقاف بثها ومسحها نهائياً من الراوتر."
+                        },
+                        color = Color.LightGray,
+                        fontSize = 14.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteWifiNetwork(net)
+                        networkToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
+                ) {
+                    Text("تأكيد الحذف", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { networkToDelete = null }) {
+                    Text("إلغاء", color = Color.LightGray)
+                }
+            }
         )
     }
 
@@ -296,6 +345,9 @@ fun WifiSettingsScreen(
                 onEdit = {
                     editingNetwork = network
                 },
+                onDelete = {
+                    networkToDelete = network
+                },
                 onShowQr = {
                     qrNetwork = network
                 },
@@ -316,10 +368,12 @@ fun WifiNetworkCard(
     network: WifiNetworkItem,
     onToggleEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onShowQr: () -> Unit,
     onCopyPassword: () -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
+    val isPrimary = network.ssidIndex == 1 || network.ssidIndex == 5
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -353,12 +407,29 @@ fun WifiNetworkCard(
                     }
 
                     Column {
-                        Text(
-                            text = network.ssid,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 16.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = network.ssid,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isPrimary) NokiaBlueLight.copy(alpha = 0.2f) else AccentCyan.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = if (isPrimary) "أساسية" else "إضافية",
+                                    fontSize = 10.sp,
+                                    color = if (isPrimary) NokiaBlueLight else AccentCyan,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                         Text(
                             text = "${network.band} • ${network.securityMode}",
                             style = MaterialTheme.typography.bodySmall,
@@ -444,32 +515,50 @@ fun WifiNetworkCard(
                 }
             }
 
-            // Action Buttons
+            // Action Buttons: Delete Network, QR Code, Edit
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
-                    onClick = onShowQr,
+                    onClick = onDelete,
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = DangerRed
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Delete, contentDescription = "حذف الشبكة", modifier = Modifier.size(16.dp), tint = DangerRed)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("رمز QR", fontSize = 12.sp)
+                    Text("حذف الشبكة", fontSize = 12.sp, color = DangerRed, fontWeight = FontWeight.Bold)
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                OutlinedButton(
-                    onClick = onEdit,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("تعديل الخصائص والاسم", fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = onShowQr,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("رمز QR", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = onEdit,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceCard),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentCyan)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("تعديل", fontSize = 12.sp, color = AccentCyan)
+                    }
                 }
             }
         }

@@ -272,6 +272,63 @@ class NokiaRouterService(
         updateWifiNetwork(newItem)
     }
 
+    suspend fun deleteWifiNetwork(item: WifiNetworkItem): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val is5G = item.band.contains("5")
+            val endpoint = if (is5G) "wlan_config_web_app.cgi?do_config_glb11ac" else "wlan_config_web_app.cgi?do_config_glb"
+
+            // 1. If it's a Guest Wi-Fi network, call ConfigWhwGuest to disable and clear it
+            if (item.isGuestOrOpen || item.ssidIndex in listOf(2, 6) || item.band.contains("Guest", ignoreCase = true)) {
+                try {
+                    val guestParams = "act=ConfigWhwGuest&iso=&dura=&accessType=open&enable=0&wl_ssid=&wpaKey=&dual_band=1&ssid_num=2&sync_value=1"
+                    val guestPayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, guestParams)
+                    val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+                    val guestReq = Request.Builder()
+                        .url("$baseUrl/wlan_config_guest_web_app.cgi?ConfigWhwGuest")
+                        .post(guestPayload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(guestReq).execute()
+                } catch (_: Exception) {}
+            }
+
+            // 2. Disable and wipe the SSID configuration in the router's WLAN slot
+            val params = StringBuilder()
+                .append("wl_bandwidth=0")
+                .append("&wl_channel=").append(item.channel.ifBlank { "Auto" })
+                .append("&wl_power=100")
+                .append("&wl_wmm=1")
+                .append("&wl_mimo=1")
+                .append("&total_max_user=32")
+                .append("&wl_id=").append(item.ssidIndex)
+                .append("&wl_ssid=")
+                .append("&wl_ssidname=")
+                .append("&wl_en=0")
+                .append("&wl_broad=0")
+                .append("&port_mode=0")
+                .append("&isReboot=0")
+                .append("&max_user=32")
+                .append("&wl_encryptmode=None")
+                .append("&dnName=dfault&newDomain=&wanList=-2&nofIP=24")
+                .toString()
+
+            val postPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = params
+            )
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val request = Request.Builder()
+                .url("$baseUrl/$endpoint")
+                .post(postPayload.toRequestBody(mediaType))
+                .build()
+
+            val response = client.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun configureOpenMacRestrictedNetwork(
         ssidName: String,
         enable: Boolean
@@ -723,6 +780,9 @@ class NokiaRouterService(
 
                         val ssidIndex = (item["SSID_num"] as? Number)?.toInt() ?: 1
                         val enable = (item["Enable"] as? Number)?.toInt() ?: 1
+
+                        // Secondary SSIDs that are disabled/inactive shouldn't clutter the UI as active networks
+                        if (ssidIndex != 1 && ssidIndex != 5 && enable == 0) continue
                         val beaconType = item["BeaconType"]?.toString() ?: "11i"
                         val channel = item["Channel"]?.toString() ?: "Auto"
 
@@ -773,7 +833,9 @@ class NokiaRouterService(
                 for (item in guestList) {
                     if (item is Map<*, *>) {
                         val ssid = item["SSID"]?.toString() ?: item["guest_ssid"]?.toString() ?: continue
+                        if (ssid.isBlank()) continue
                         val enable = (item["Enable"] as? Number)?.toInt() ?: 1
+                        if (enable == 0) continue
                         var clearPassword = ""
                         val rawKey = item["PreSharedKey"]?.toString() ?: item["wpaKey"]?.toString().orEmpty()
                         if (rawKey.isNotEmpty()) {
