@@ -39,11 +39,14 @@ data class MacFilterEntry(
     val status: String = "Allowed"
 )
 
-data class WifiBandConfig(
-    val bandName: String, // "2.4 GHz", "5 GHz", "Guest / Open"
-    val ssid: String,
-    val isEnabled: Boolean,
-    val security: String, // "Open (No Password)", "WPA2-PSK", etc.
-    val password: String = "",
-    val macFilterEnabled: Boolean = false
+data class WifiNetworkItem(
+    val ssidIndex: Int = 1,              // 1, 2, 3, 4 (2.4G) or 5, 6, 7, 8 (5G)
+    val ssid: String,                    // Network name
+    val band: String,                    // "2.4 GHz" or "5 GHz"
+    val isEnabled: Boolean = true,       // On / Off
+    val isBroadcast: Boolean = true,     // Broadcast SSID
+    val securityMode: String = "WPA2-PSK", // "None" (Open), "WPA2-PSK", "WPA3-SAE"
+    val password: String = "",           // Cleartext password
+    val channel: String = "Auto",
+    val isGuestOrOpen: Boolean = false
 )

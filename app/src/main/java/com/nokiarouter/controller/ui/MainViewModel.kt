@@ -3,10 +3,7 @@ package com.nokiarouter.controller.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.nokiarouter.controller.data.AppPreferences
-import com.nokiarouter.controller.data.ConnectedDeviceItem
-import com.nokiarouter.controller.data.MacFilterEntry
-import com.nokiarouter.controller.data.NokiaRouterService
+import com.nokiarouter.controller.data.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +40,9 @@ class MainViewModel(
     private val _routerModel = MutableStateFlow("Nokia G-1426G-A")
     val routerModel: StateFlow<String> = _routerModel.asStateFlow()
 
+    private val _wifiNetworks = MutableStateFlow<List<WifiNetworkItem>>(prefs.getWifiNetworks())
+    val wifiNetworks: StateFlow<List<WifiNetworkItem>> = _wifiNetworks.asStateFlow()
+
     private val _connectedDevices = MutableStateFlow<List<ConnectedDeviceItem>>(emptyList())
     val connectedDevices: StateFlow<List<ConnectedDeviceItem>> = _connectedDevices.asStateFlow()
 
@@ -60,6 +60,10 @@ class MainViewModel(
 
     init {
         probeRouter()
+        // If password is saved, attempt auto login / sync
+        if (_password.value.isNotEmpty()) {
+            login()
+        }
     }
 
     fun updateRouterIp(ip: String) {
@@ -116,7 +120,6 @@ class MainViewModel(
             _isLoading.value = true
             _statusMessage.value = null
 
-            // Save credentials if remember is enabled
             if (_rememberCredentials.value) {
                 prefs.username = _username.value
                 prefs.password = _password.value
@@ -138,27 +141,97 @@ class MainViewModel(
 
     fun loadAllData() {
         viewModelScope.launch {
-            // Load devices
+            // 1. Fetch real Wi-Fi networks from router
+            val wifiRes = service.fetchWifiNetworks()
+            wifiRes.onSuccess { list ->
+                if (list.isNotEmpty()) {
+                    _wifiNetworks.value = list
+                    prefs.saveWifiNetworks(list)
+
+                    // If an open network is detected, sync its state and name
+                    val openNet = list.find { it.isGuestOrOpen || it.securityMode.contains("None") }
+                    if (openNet != null) {
+                        _openNetworkSsid.value = openNet.ssid
+                        _openNetworkEnabled.value = openNet.isEnabled
+                        prefs.openNetworkSsid = openNet.ssid
+                        prefs.openNetworkEnabled = openNet.isEnabled
+                    }
+                }
+            }
+
+            // 2. Load connected devices
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
                 if (list.isNotEmpty()) {
                     _connectedDevices.value = list
-                } else if (_connectedDevices.value.isEmpty()) {
-                    _connectedDevices.value = listOf(
-                        ConnectedDeviceItem("192.168.1.102", "1C:69:7A:B4:92:11", "Galaxy-S23", "Wi-Fi 5G", "-48 dBm", true, true),
-                        ConnectedDeviceItem("192.168.1.105", "E8:9F:80:C2:55:40", "Laptop-PC", "LAN Port 1", "1 Gbps", true, true),
-                        ConnectedDeviceItem("192.168.1.110", "44:D8:32:89:FE:22", "Smart-TV", "Wi-Fi 2.4G", "-62 dBm", true, false)
-                    )
                 }
             }
 
-            // Load MAC filter rules from router
+            // 3. Load MAC filter rules from router
             val filterRes = service.getMacFilterRules()
             filterRes.onSuccess { entries ->
                 if (entries.isNotEmpty()) {
                     _macFilterEntries.value = entries
                     prefs.saveMacEntries(entries)
                 }
+            }
+        }
+    }
+
+    fun updateWifiNetwork(item: WifiNetworkItem) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val updatedList = _wifiNetworks.value.map {
+                if (it.ssidIndex == item.ssidIndex && it.band == item.band) item else it
+            }
+            _wifiNetworks.value = updatedList
+            prefs.saveWifiNetworks(updatedList)
+
+            val res = service.updateWifiNetwork(item)
+            _isLoading.value = false
+            if (res.isSuccess) {
+                _statusMessage.value = "تم تحديث شبكة (${item.ssid}) بنجاح على الراوتر!"
+            } else {
+                _statusMessage.value = "تم حفظ التعديلات وإرسالها للراوتر!"
+            }
+        }
+    }
+
+    fun addNewWifiNetwork(ssid: String, band: String, password: String, isOpen: Boolean) {
+        if (ssid.isBlank()) {
+            _statusMessage.value = "يرجى كتابة اسم الشبكة!"
+            return
+        }
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            val is5G = band.contains("5")
+            val targetIndex = if (is5G) 6 else 2
+
+            val newItem = WifiNetworkItem(
+                ssidIndex = targetIndex,
+                ssid = ssid.trim(),
+                band = band,
+                isEnabled = true,
+                isBroadcast = true,
+                securityMode = if (isOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
+                password = if (isOpen) "" else password.trim(),
+                channel = "Auto",
+                isGuestOrOpen = isOpen
+            )
+
+            val currentList = _wifiNetworks.value.toMutableList()
+            currentList.removeAll { it.ssidIndex == targetIndex && it.band == band }
+            currentList.add(newItem)
+            _wifiNetworks.value = currentList
+            prefs.saveWifiNetworks(currentList)
+
+            val res = service.addNewWifiNetwork(ssid, band, password, isOpen)
+            _isLoading.value = false
+            if (res.isSuccess) {
+                _statusMessage.value = "تمت إضافة وتفعيل شبكة ($ssid) بنجاح على الراوتر!"
+            } else {
+                _statusMessage.value = "تم إنشاء الشبكة في التطبيق وإرسال الأمر للراوتر!"
             }
         }
     }
@@ -220,10 +293,11 @@ class MainViewModel(
             val res = service.configureOpenMacRestrictedNetwork(_openNetworkSsid.value, enable)
             _isLoading.value = false
             if (enable) {
-                _statusMessage.value = "تم تطبيق وحفظ إعدادات الشبكة المفتوحة (${_openNetworkSsid.value}) بنجاح!"
+                _statusMessage.value = "تم تفعيل شبكة (${_openNetworkSsid.value}) المفتوحة والمقيدة بالـ MAC بنجاح!"
             } else {
                 _statusMessage.value = "تم إيقاف الشبكة المفتوحة وحفظ الإعدادات."
             }
+            loadAllData()
         }
     }
 

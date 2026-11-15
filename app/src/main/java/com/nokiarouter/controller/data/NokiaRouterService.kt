@@ -155,6 +155,200 @@ class NokiaRouterService(
         }
     }
 
+    suspend fun fetchWifiNetworks(): Result<List<WifiNetworkItem>> = withContext(Dispatchers.IO) {
+        try {
+            val networks = mutableListOf<WifiNetworkItem>()
+
+            // 1. Fetch 2.4 GHz SSIDs
+            val req24 = Request.Builder()
+                .url("$baseUrl/wlan_config_status_web_app.cgi")
+                .get()
+                .build()
+            val res24 = client.newCall(req24).execute()
+            val raw24 = res24.body?.string().orEmpty()
+            val dec24 = decryptIfEncrypted(raw24)
+            parseWifiList(dec24, "2.4 GHz", networks)
+
+            // 2. Fetch 5 GHz SSIDs
+            val req5 = Request.Builder()
+                .url("$baseUrl/wlan_config_status_web_app.cgi?v=11ac")
+                .get()
+                .build()
+            val res5 = client.newCall(req5).execute()
+            val raw5 = res5.body?.string().orEmpty()
+            val dec5 = decryptIfEncrypted(raw5)
+            parseWifiList(dec5, "5 GHz", networks)
+
+            // 3. Fetch Guest Wi-Fi info
+            val reqGuest = Request.Builder()
+                .url("$baseUrl/wlan_config_guest_status_web_app.cgi")
+                .get()
+                .build()
+            val resGuest = client.newCall(reqGuest).execute()
+            val rawGuest = resGuest.body?.string().orEmpty()
+            val decGuest = decryptIfEncrypted(rawGuest)
+            parseGuestWifi(decGuest, networks)
+
+            Result.success(networks)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateWifiNetwork(item: WifiNetworkItem): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val is5G = item.band.contains("5")
+            val endpoint = if (is5G) "wlan_config_web_app.cgi?do_config_glb11ac" else "wlan_config_web_app.cgi?do_config_glb"
+
+            val encodedSsid = URLEncoder.encode(item.ssid.trim(), "UTF-8")
+            val encodedPwd = URLEncoder.encode(item.password.trim(), "UTF-8")
+            val isEnabledFlag = if (item.isEnabled) "1" else "0"
+            val encryptMode = if (item.securityMode.contains("None", ignoreCase = true) || item.password.isEmpty()) "None" else "Private2"
+
+            val params = StringBuilder()
+                .append("wl_bandwidth=0")
+                .append("&wl_channel=").append(item.channel)
+                .append("&wl_power=100")
+                .append("&wl_wmm=1")
+                .append("&wl_mimo=1")
+                .append("&total_max_user=32")
+                .append("&wl_id=").append(item.ssidIndex)
+                .append("&wl_ssid=").append(encodedSsid)
+                .append("&wl_ssidname=").append(encodedSsid)
+                .append("&wl_en=").append(isEnabledFlag)
+                .append("&wl_broad=").append(if (item.isBroadcast) "1" else "0")
+                .append("&port_mode=0")
+                .append("&isReboot=0")
+                .append("&max_user=32")
+                .append("&wl_encryptmode=").append(encryptMode)
+
+            if (encryptMode != "None") {
+                params.append("&wpaKey=").append(encodedPwd)
+            }
+
+            params.append("&dnName=dfault&newDomain=&wanList=-2&nofIP=24&wl_enable=on")
+
+            val postPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = params.toString()
+            )
+
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val request = Request.Builder()
+                .url("$baseUrl/$endpoint")
+                .post(postPayload.toRequestBody(mediaType))
+                .build()
+
+            val response = client.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addNewWifiNetwork(
+        ssid: String,
+        band: String,
+        password: String,
+        isOpen: Boolean
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        val is5G = band.contains("5")
+        // Secondary SSID index: 2 on 2.4G, 6 on 5G
+        val targetIndex = if (is5G) 6 else 2
+        val security = if (isOpen) "None" else "WPA2-PSK"
+
+        val newItem = WifiNetworkItem(
+            ssidIndex = targetIndex,
+            ssid = ssid,
+            band = band,
+            isEnabled = true,
+            isBroadcast = true,
+            securityMode = security,
+            password = if (isOpen) "" else password,
+            channel = "Auto",
+            isGuestOrOpen = isOpen
+        )
+        updateWifiNetwork(newItem)
+    }
+
+    suspend fun configureOpenMacRestrictedNetwork(
+        ssidName: String,
+        enable: Boolean
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val encodedSsid = URLEncoder.encode(ssidName.trim(), "UTF-8")
+            val isEnabledFlag = if (enable) "1" else "0"
+
+            // 1. Configure Guest / Open Network subsystem
+            val guestParams = StringBuilder()
+                .append("act=ConfigWhwGuest")
+                .append("&iso=")
+                .append("&dura=")
+                .append("&accessType=open")
+                .append("&enable=").append(isEnabledFlag)
+                .append("&wl_ssid=").append(encodedSsid)
+                .append("&wpaKey=")
+                .append("&dual_band=1")
+                .append("&ssid_num=2")
+                .append("&sync_value=1")
+                .toString()
+
+            val guestPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = guestParams
+            )
+
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val guestReq = Request.Builder()
+                .url("$baseUrl/wlan_config_guest_web_app.cgi?ConfigWhwGuest")
+                .post(guestPayload.toRequestBody(mediaType))
+                .build()
+
+            client.newCall(guestReq).execute()
+
+            // 2. Also configure secondary SSID on 2.4G as Open network without password
+            val secondaryParams = StringBuilder()
+                .append("wl_bandwidth=0&wl_channel=Auto&wl_power=100&wl_wmm=1&wl_mimo=1&total_max_user=32")
+                .append("&wl_id=2")
+                .append("&wl_ssid=").append(encodedSsid)
+                .append("&wl_ssidname=").append(encodedSsid)
+                .append("&wl_en=").append(isEnabledFlag)
+                .append("&wl_broad=1&port_mode=0&isReboot=0&max_user=32&wl_encryptmode=None")
+                .append("&dnName=dfault&newDomain=&wanList=-2&nofIP=24&wl_enable=on")
+                .toString()
+
+            val secPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = secondaryParams
+            )
+            val secReq = Request.Builder()
+                .url("$baseUrl/wlan_config_web_app.cgi?do_config_glb")
+                .post(secPayload.toRequestBody(mediaType))
+                .build()
+            client.newCall(secReq).execute()
+
+            // 3. Set MAC filtering to Allowlist mode
+            val filterParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
+            val filterPayload = NokiaCrypto.encryptPostWithCsrf(
+                pubKeyPem = pubKeyPem,
+                csrfToken = csrfToken,
+                params = filterParams
+            )
+            val filterReq = Request.Builder()
+                .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
+                .post(filterPayload.toRequestBody(mediaType))
+                .build()
+            val filterRes = client.newCall(filterReq).execute()
+
+            Result.success(filterRes.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getConnectedDevices(): Result<List<ConnectedDeviceItem>> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -194,7 +388,6 @@ class NokiaRouterService(
             val cleanMac = macAddress.trim().uppercase()
             val encodedName = URLEncoder.encode(deviceName.ifBlank { "Permitted Device" }, "UTF-8")
 
-            // Format parameters matching Nokia macfilter_web_app.cgi?add_wlan
             val params = "mac_addr=$cleanMac&device_name=$encodedName&filter_mode=allow&mac_address=$cleanMac"
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
@@ -230,7 +423,6 @@ class NokiaRouterService(
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
             val reqBody = postPayload.toRequestBody(mediaType)
 
-            // Del endpoint uses act=del_wlan&mac=...
             val request = Request.Builder()
                 .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
                 .post(reqBody)
@@ -238,61 +430,6 @@ class NokiaRouterService(
 
             val response = client.newCall(request).execute()
             Result.success(response.isSuccessful)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Configures and creates an Open (No Password) Wi-Fi Network restricted strictly by MAC Filtering.
-     * Applies settings to both Guest Wi-Fi subsystem and WLAN Multi-SSID subsystem.
-     */
-    suspend fun configureOpenMacRestrictedNetwork(
-        ssidName: String,
-        enable: Boolean
-    ): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            val encodedSsid = URLEncoder.encode(ssidName.trim(), "UTF-8")
-            val isEnabledFlag = if (enable) "1" else "0"
-
-            // 1. Submit to Guest Network subsystem: ConfigWhwGuest
-            val guestParams = StringBuilder()
-                .append("guest_enable=").append(isEnabledFlag)
-                .append("&guest_ssid=").append(encodedSsid)
-                .append("&security_mode=None")
-                .append("&broadcast=1")
-                .append("&mac_filter_enable=1")
-                .append("&mac_filter_mode=allow")
-                .toString()
-
-            val guestPayload = NokiaCrypto.encryptPostWithCsrf(
-                pubKeyPem = pubKeyPem,
-                csrfToken = csrfToken,
-                params = guestParams
-            )
-
-            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
-            val guestReq = Request.Builder()
-                .url("$baseUrl/wlan_config_guest_web_app.cgi?ConfigWhwGuest")
-                .post(guestPayload.toRequestBody(mediaType))
-                .build()
-
-            val guestRes = client.newCall(guestReq).execute()
-
-            // 2. Also ensure MAC filtering is globally active for WLAN in allowlist mode
-            val filterGlobalParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
-            val filterPayload = NokiaCrypto.encryptPostWithCsrf(
-                pubKeyPem = pubKeyPem,
-                csrfToken = csrfToken,
-                params = filterGlobalParams
-            )
-            val filterReq = Request.Builder()
-                .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
-                .post(filterPayload.toRequestBody(mediaType))
-                .build()
-            client.newCall(filterReq).execute()
-
-            Result.success(guestRes.isSuccessful)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -352,6 +489,97 @@ class NokiaRouterService(
             NokiaCrypto.aesDecryptCbc(keys.decKeyBytes, keys.decIvBytes, cipherBytes)
         } catch (e: Exception) {
             trimmed
+        }
+    }
+
+    private fun parseWifiList(json: String, band: String, output: MutableList<WifiNetworkItem>) {
+        if (json.isEmpty()) return
+        try {
+            val root = gson.fromJson(json, Map::class.java)
+            val wlanList = (root["wlan_config_glb"] ?: root["wlan_config_glb11ac"] ?: root["wlan_list"]) as? List<*>
+            if (wlanList != null) {
+                for (item in wlanList) {
+                    if (item is Map<*, *>) {
+                        val ssid = item["SSID"]?.toString() ?: continue
+                        if (ssid.isBlank()) continue
+
+                        val ssidIndex = (item["SSID_num"] as? Number)?.toInt() ?: 1
+                        val enable = (item["Enable"] as? Number)?.toInt() ?: 1
+                        val beaconType = item["BeaconType"]?.toString() ?: "11i"
+                        val channel = item["Channel"]?.toString() ?: "Auto"
+
+                        // Extract password from psks array and decrypt it
+                        var clearPassword = ""
+                        val psks = item["psks"] as? List<*>
+                        if (psks != null && psks.isNotEmpty()) {
+                            val firstPsk = psks[0] as? Map<*, *>
+                            val rawKey = firstPsk?.get("PreSharedKey")?.toString().orEmpty()
+                            clearPassword = decryptIfEncrypted(rawKey)
+                        }
+
+                        val isSecurityNone = beaconType.equals("None", ignoreCase = true) || (clearPassword.isEmpty() && beaconType.isEmpty())
+                        val securityStr = when {
+                            isSecurityNone -> "مفتوحة بدون باسورد (Open)"
+                            beaconType.contains("WPA3", ignoreCase = true) -> "WPA3-SAE"
+                            beaconType.contains("11i", ignoreCase = true) || beaconType.contains("WPA2", ignoreCase = true) -> "WPA2-PSK"
+                            else -> "WPA/WPA2 Personal"
+                        }
+
+                        output.add(
+                            WifiNetworkItem(
+                                ssidIndex = ssidIndex,
+                                ssid = ssid,
+                                band = band,
+                                isEnabled = enable == 1,
+                                isBroadcast = true,
+                                securityMode = securityStr,
+                                password = clearPassword,
+                                channel = channel,
+                                isGuestOrOpen = isSecurityNone || ssidIndex in listOf(2, 6)
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Handled
+        }
+    }
+
+    private fun parseGuestWifi(json: String, output: MutableList<WifiNetworkItem>) {
+        if (json.isEmpty()) return
+        try {
+            val root = gson.fromJson(json, Map::class.java)
+            val guestList = root["guest_list"] as? List<*>
+            if (guestList != null) {
+                for (item in guestList) {
+                    if (item is Map<*, *>) {
+                        val ssid = item["SSID"]?.toString() ?: item["guest_ssid"]?.toString() ?: continue
+                        val enable = (item["Enable"] as? Number)?.toInt() ?: 1
+                        var clearPassword = ""
+                        val rawKey = item["PreSharedKey"]?.toString() ?: item["wpaKey"]?.toString().orEmpty()
+                        if (rawKey.isNotEmpty()) {
+                            clearPassword = decryptIfEncrypted(rawKey)
+                        }
+                        val isOpen = clearPassword.isEmpty() || item["security_mode"] == "None"
+
+                        output.add(
+                            WifiNetworkItem(
+                                ssidIndex = 2,
+                                ssid = ssid,
+                                band = "2.4 GHz + 5 GHz (Guest)",
+                                isEnabled = enable == 1,
+                                isBroadcast = true,
+                                securityMode = if (isOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
+                                password = clearPassword,
+                                isGuestOrOpen = true
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Handled
         }
     }
 

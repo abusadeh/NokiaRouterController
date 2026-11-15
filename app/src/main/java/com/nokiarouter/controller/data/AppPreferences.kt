@@ -18,6 +18,7 @@ class AppPreferences(context: Context) {
         private const val KEY_OPEN_SSID = "key_open_ssid"
         private const val KEY_OPEN_ENABLED = "key_open_enabled"
         private const val KEY_MAC_ENTRIES = "key_mac_entries"
+        private const val KEY_WIFI_NETWORKS = "key_wifi_networks"
     }
 
     var routerIp: String
@@ -56,6 +57,25 @@ class AppPreferences(context: Context) {
         )
         return try {
             val type = object : TypeToken<List<MacFilterEntry>>() {}.type
+            gson.fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveWifiNetworks(networks: List<WifiNetworkItem>) {
+        val json = gson.toJson(networks)
+        prefs.edit().putString(KEY_WIFI_NETWORKS, json).apply()
+    }
+
+    fun getWifiNetworks(): List<WifiNetworkItem> {
+        val json = prefs.getString(KEY_WIFI_NETWORKS, null) ?: return listOf(
+            WifiNetworkItem(1, "Nokia-Home-2.4G", "2.4 GHz", true, true, "WPA2-PSK", "••••••••", "Auto", false),
+            WifiNetworkItem(5, "Nokia-Home-5G", "5 GHz", true, true, "WPA2/WPA3 Personal", "••••••••", "Auto", false),
+            WifiNetworkItem(2, "Nokia_VIP_Open", "2.4 GHz (مقيدة)", true, true, "مفتوحة بدون باسورد (Open)", "", "Auto", true)
+        )
+        return try {
+            val type = object : TypeToken<List<WifiNetworkItem>>() {}.type
             gson.fromJson(json, type) ?: emptyList()
         } catch (e: Exception) {
             emptyList()
