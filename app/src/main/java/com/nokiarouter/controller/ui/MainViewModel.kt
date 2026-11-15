@@ -167,13 +167,18 @@ class MainViewModel(
                 }
             }
 
-            // 2. Load connected devices & apply user nicknames
+            // 2. Load connected devices & apply user nicknames and block status
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
                 val nicknames = prefs.getDeviceNicknames()
+                val blockedSet = prefs.getBlockedMacs()
                 val updated = list.map { dev ->
                     val nick = nicknames[dev.mac.lowercase()]
-                    if (!nick.isNullOrBlank()) dev.copy(hostName = nick) else dev
+                    val isBlocked = blockedSet.contains(dev.mac.uppercase())
+                    dev.copy(
+                        hostName = if (!nick.isNullOrBlank()) nick else dev.hostName,
+                        isBlocked = isBlocked
+                    )
                 }
                 _connectedDevices.value = updated
             }
@@ -203,9 +208,14 @@ class MainViewModel(
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
                 val nicknames = prefs.getDeviceNicknames()
+                val blockedSet = prefs.getBlockedMacs()
                 val updated = list.map { dev ->
                     val nick = nicknames[dev.mac.lowercase()]
-                    if (!nick.isNullOrBlank()) dev.copy(hostName = nick) else dev
+                    val isBlocked = blockedSet.contains(dev.mac.uppercase())
+                    dev.copy(
+                        hostName = if (!nick.isNullOrBlank()) nick else dev.hostName,
+                        isBlocked = isBlocked
+                    )
                 }
                 _connectedDevices.value = updated
                 _statusMessage.value = "تم اكتشاف ${list.size} جهاز متصل بنجاح!"
@@ -224,12 +234,32 @@ class MainViewModel(
         _statusMessage.value = "تم حفظ الاسم المخصص للجهاز بنجاح!"
     }
 
-    fun blockDevice(mac: String) {
+    fun blockDevice(mac: String, oid: Int? = null) {
         viewModelScope.launch {
             _isLoading.value = true
-            // Remove from whitelist if present
-            removeMacFromWhitelist(mac)
-            _statusMessage.value = "تم حظر الجهاز وإزالته من الشبكة بنجاح ($mac)!"
+            val res = service.blockDeviceOnRouter(mac, "Blocked Device", oid)
+            if (res.isSuccess) {
+                prefs.addBlockedMac(mac)
+                _statusMessage.value = "تم حظر الجهاز وطرد اتصاله من الراوتر بنجاح ($mac)!"
+                refreshConnectedDevices()
+            } else {
+                _statusMessage.value = "فشل تنفيذ أمر الحظر على الراوتر"
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun unblockDevice(mac: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val res = service.unblockDeviceOnRouter(mac)
+            if (res.isSuccess) {
+                prefs.removeBlockedMac(mac)
+                _statusMessage.value = "تم إلغاء حظر الجهاز ($mac) بنجاح وإعادة السماح له!"
+                refreshConnectedDevices()
+            } else {
+                _statusMessage.value = "فشل إلغاء الحظر على الراوتر"
+            }
             _isLoading.value = false
         }
     }

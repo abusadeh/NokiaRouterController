@@ -545,6 +545,73 @@ class NokiaRouterService(
         }
     }
 
+    suspend fun blockDeviceOnRouter(macAddress: String, deviceName: String = "", oid: Int? = null): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val cleanMac = macAddress.trim().uppercase()
+            val encodedName = URLEncoder.encode(deviceName.ifBlank { "Blocked Device" }, "UTF-8")
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+
+            // 1. Add to Deny filter on primary and secondary SSIDs (2.4G & 5G)
+            val ssidIndices = listOf(2, 6, 1, 5)
+            for (ssidId in ssidIndices) {
+                try {
+                    val params = "wlan_mac_exclude_mod=Deny&wl_id=$ssidId&ssid_enable=on&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
+                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
+                    val req = Request.Builder()
+                        .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
+                        .post(payload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(req).execute()
+                } catch (_: Exception) {}
+            }
+
+            // 2. Drop active DHCP connection via delete_local_devices if OID is known
+            if (oid != null && oid > 0) {
+                try {
+                    val kickParams = "oid=$oid"
+                    val kickPayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, kickParams)
+                    val kickReq = Request.Builder()
+                        .url("$baseUrl/lan_status_web_app.cgi?del")
+                        .post(kickPayload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(kickReq).execute()
+                } catch (_: Exception) {}
+            }
+
+            // 3. If present in whitelist, remove it from whitelist
+            try {
+                removeMacFromWhitelist(cleanMac)
+            } catch (_: Exception) {}
+
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unblockDeviceOnRouter(macAddress: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val cleanMac = macAddress.trim().uppercase()
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+
+            val ssidIndices = listOf(2, 6, 1, 5)
+            for (ssidId in ssidIndices) {
+                try {
+                    val delParams = "act=del_wlan&ssid=$ssidId&mac=$cleanMac"
+                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, delParams)
+                    val req = Request.Builder()
+                        .url("$baseUrl/macfilter_web_app.cgi?$delParams")
+                        .post(payload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(req).execute()
+                } catch (_: Exception) {}
+            }
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun rebootRouter(): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
@@ -839,7 +906,8 @@ class NokiaRouterService(
                                 hostName = name,
                                 connectionType = connType,
                                 signalDbm = signalDbm,
-                                isOnline = isOnline
+                                isOnline = isOnline,
+                                oid = oid
                             )
                         )
                     }

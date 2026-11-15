@@ -29,7 +29,9 @@ data class ConnectedDeviceItem(
     val connectionType: String, // "Wi-Fi 2.4G", "Wi-Fi 5G", "LAN Cable"
     val signalDbm: String? = null,
     val isOnline: Boolean = true,
-    val isWhitelisted: Boolean = false
+    val isWhitelisted: Boolean = false,
+    val isBlocked: Boolean = false,
+    val oid: Int? = null
 )
 
 data class MacFilterEntry(

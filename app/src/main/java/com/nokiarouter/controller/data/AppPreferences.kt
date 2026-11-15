@@ -107,4 +107,20 @@ class AppPreferences(context: Context) {
             emptyMap()
         }
     }
+
+    fun addBlockedMac(mac: String) {
+        val set = getBlockedMacs().toMutableSet()
+        set.add(mac.uppercase())
+        prefs.edit().putStringSet("key_blocked_macs", set).apply()
+    }
+
+    fun removeBlockedMac(mac: String) {
+        val set = getBlockedMacs().toMutableSet()
+        set.remove(mac.uppercase())
+        prefs.edit().putStringSet("key_blocked_macs", set).apply()
+    }
+
+    fun getBlockedMacs(): Set<String> {
+        return prefs.getStringSet("key_blocked_macs", emptySet()) ?: emptySet()
+    }
 }

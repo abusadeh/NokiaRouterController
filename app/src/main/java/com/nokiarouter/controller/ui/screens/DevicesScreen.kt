@@ -92,17 +92,17 @@ fun DevicesScreen(
                 }
             },
             text = {
-                Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وإزالته من قائمة الأجهزة المسموحة في الشبكة المفتوحة؟")
+                Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وقطع اتصاله بالكامل عن الراوتر والواي فاي؟")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.blockDevice(dev.mac)
+                        viewModel.blockDevice(dev.mac, dev.oid)
                         blockingDevice = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("حظر وإزالة فورية")
+                    Text("حظر وقطع الاتصال")
                 }
             },
             dismissButton = {
@@ -250,6 +250,9 @@ fun DevicesScreen(
                     },
                     onBlock = {
                         blockingDevice = device
+                    },
+                    onUnblock = {
+                        viewModel.unblockDevice(device.mac)
                     }
                 )
             }
@@ -263,7 +266,8 @@ fun DeviceItemCard(
     isWhitelisted: Boolean,
     onAddToWhitelist: () -> Unit,
     onRename: () -> Unit,
-    onBlock: () -> Unit
+    onBlock: () -> Unit,
+    onUnblock: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -379,42 +383,69 @@ fun DeviceItemCard(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (isWhitelisted) {
+                    if (device.isBlocked) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = SuccessGreen.copy(alpha = 0.2f)
+                            color = DangerRed.copy(alpha = 0.2f)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
-                                Text("مسموح", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(14.dp))
+                                Text("محظور ومطرود", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    } else {
+
                         OutlinedButton(
-                            onClick = onAddToWhitelist,
+                            onClick = onUnblock,
                             shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SuccessGreen),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = SuccessGreen)
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text("سماح بالشبكة", fontSize = 11.sp)
+                            Text("إلغاء الحظر", fontSize = 11.sp, color = SuccessGreen)
                         }
-                    }
+                    } else {
+                        if (isWhitelisted) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SuccessGreen.copy(alpha = 0.2f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
+                                    Text("مسموح", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = onAddToWhitelist,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("سماح بالشبكة", fontSize = 11.sp)
+                            }
+                        }
 
-                    // Block Device Button
-                    OutlinedButton(
-                        onClick = onBlock,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(14.dp), tint = DangerRed)
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text("حظر", fontSize = 11.sp, color = DangerRed)
+                        // Block Device Button
+                        OutlinedButton(
+                            onClick = onBlock,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(14.dp), tint = DangerRed)
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("حظر", fontSize = 11.sp, color = DangerRed)
+                        }
                     }
                 }
             }
