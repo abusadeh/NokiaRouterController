@@ -141,6 +141,7 @@ class MainViewModel(
 
     fun loadAllData() {
         viewModelScope.launch {
+            _isLoading.value = true
             // 1. Fetch real Wi-Fi networks from router
             val wifiRes = service.fetchWifiNetworks()
             wifiRes.onSuccess { list ->
@@ -162,9 +163,7 @@ class MainViewModel(
             // 2. Load connected devices
             val devicesRes = service.getConnectedDevices()
             devicesRes.onSuccess { list ->
-                if (list.isNotEmpty()) {
-                    _connectedDevices.value = list
-                }
+                _connectedDevices.value = list
             }
 
             // 3. Load MAC filter rules from router
@@ -175,6 +174,21 @@ class MainViewModel(
                     prefs.saveMacEntries(entries)
                 }
             }
+            _isLoading.value = false
+        }
+    }
+
+    fun refreshConnectedDevices() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val devicesRes = service.getConnectedDevices()
+            devicesRes.onSuccess { list ->
+                _connectedDevices.value = list
+                _statusMessage.value = "تم اكتشاف ${list.size} جهاز متصل بنجاح!"
+            }.onFailure { e ->
+                _statusMessage.value = "تعذر تحديث الأجهزة: ${e.message}"
+            }
+            _isLoading.value = false
         }
     }
 

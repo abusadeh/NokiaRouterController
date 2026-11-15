@@ -351,15 +351,49 @@ class NokiaRouterService(
 
     suspend fun getConnectedDevices(): Result<List<ConnectedDeviceItem>> = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder()
-                .url("$baseUrl/lan_status_web_app.cgi?lan")
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            val rawBody = response.body?.string().orEmpty()
-            val decrypted = decryptIfEncrypted(rawBody)
+            // 1. Fetch /lan_status_web_app.cgi?wlan (all LAN & WLAN DHCP leases & MACs)
+            var rawWlan = ""
+            try {
+                val reqWlan = Request.Builder()
+                    .url("$baseUrl/lan_status_web_app.cgi?wlan")
+                    .get()
+                    .build()
+                val resWlan = client.newCall(reqWlan).execute()
+                rawWlan = resWlan.body?.string().orEmpty()
+            } catch (e: Exception) {
+                // Ignore and fallback
+            }
+            val decWlan = decryptIfEncrypted(rawWlan)
 
-            val devices = parseConnectedDevices(decrypted)
+            // 2. Fetch /dashboard_device_status_web_app.cgi (device hostnames and active status)
+            var rawDash = ""
+            try {
+                val reqDash = Request.Builder()
+                    .url("$baseUrl/dashboard_device_status_web_app.cgi")
+                    .get()
+                    .build()
+                val resDash = client.newCall(reqDash).execute()
+                rawDash = resDash.body?.string().orEmpty()
+            } catch (e: Exception) {
+                // Ignore
+            }
+            val decDash = decryptIfEncrypted(rawDash)
+
+            // 3. Fetch /sta_info_web_app.cgi (live associated Wi-Fi stations & RSSI dBm)
+            var rawSta = ""
+            try {
+                val reqSta = Request.Builder()
+                    .url("$baseUrl/sta_info_web_app.cgi")
+                    .get()
+                    .build()
+                val resSta = client.newCall(reqSta).execute()
+                rawSta = resSta.body?.string().orEmpty()
+            } catch (e: Exception) {
+                // Ignore
+            }
+            val decSta = decryptIfEncrypted(rawSta)
+
+            val devices = parseCombinedConnectedDevices(decWlan, decDash, decSta)
             Result.success(devices)
         } catch (e: Exception) {
             Result.failure(e)
@@ -583,27 +617,179 @@ class NokiaRouterService(
         }
     }
 
-    private fun parseConnectedDevices(json: String): List<ConnectedDeviceItem> {
-        val list = mutableListOf<ConnectedDeviceItem>()
-        if (json.isEmpty()) return list
-        try {
-            val root = gson.fromJson(json, Map::class.java)
-            val clientList = (root["client_list"] ?: root["lan_list"] ?: root["wlan_list"]) as? List<*>
-            if (clientList != null) {
-                for (item in clientList) {
-                    if (item is Map<*, *>) {
-                        val ip = item["ip"]?.toString() ?: item["IPv4Address"]?.toString() ?: "192.168.1.X"
-                        val mac = item["mac"]?.toString() ?: item["MACAddress"]?.toString() ?: "00:00:00:00:00:00"
-                        val name = item["host_name"]?.toString() ?: item["HostName"]?.toString() ?: "Device"
-                        val conn = item["interface"]?.toString() ?: "Wi-Fi"
-                        list.add(ConnectedDeviceItem(ip, mac, name, conn))
+    private data class StaClientInfo(
+        val mac: String,
+        val ssid: String,
+        val signalDbm: String,
+        val downlinkRate: String
+    )
+
+    private fun parseCombinedConnectedDevices(
+        wlanJson: String,
+        dashJson: String,
+        staJson: String
+    ): List<ConnectedDeviceItem> {
+        val staClients = mutableMapOf<String, StaClientInfo>()
+
+        fun findStaClients(node: Any?) {
+            when (node) {
+                is Map<*, *> -> {
+                    val mac = (node["AssociatedDeviceMACAddress"] ?: node["mac"])?.toString()?.trim()?.lowercase()
+                    if (!mac.isNullOrEmpty() && mac.contains(":")) {
+                        val signal = node["SignalStrength"]?.toString() ?: ""
+                        val signalStr = if (signal.isNotEmpty()) "$signal dBm" else ""
+                        val ssid = node["SSID"]?.toString().orEmpty()
+                        val rate = node["LastDataDownlinkRate"]?.toString().orEmpty()
+                        staClients[mac] = StaClientInfo(mac, ssid, signalStr, rate)
+                    }
+                    for (value in node.values) {
+                        findStaClients(value)
+                    }
+                }
+                is List<*> -> {
+                    for (element in node) {
+                        findStaClients(element)
                     }
                 }
             }
-        } catch (e: Exception) {
-            // Handled
         }
-        return list
+
+        if (staJson.isNotEmpty()) {
+            try {
+                val root = gson.fromJson(staJson, Any::class.java)
+                findStaClients(root)
+            } catch (_: Exception) {}
+        }
+
+        val oidToHostName = mutableMapOf<Int, String>()
+        val oidToActive = mutableMapOf<Int, Boolean>()
+        val macToAlias = mutableMapOf<String, String>()
+
+        if (dashJson.isNotEmpty()) {
+            try {
+                val root = gson.fromJson(dashJson, Map::class.java)
+                val devCfg = root["device_cfg"] as? List<*>
+                devCfg?.forEach { item ->
+                    if (item is Map<*, *>) {
+                        val oid = (item["_oid"] as? Number)?.toInt()
+                            ?: item["_oid"]?.toString()?.toDoubleOrNull()?.toInt()
+                        val hostName = item["HostName"]?.toString()?.trim().orEmpty()
+                        val active = (item["Active"] as? Number)?.toInt()
+                            ?: item["Active"]?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+                        if (oid != null && hostName.isNotEmpty()) {
+                            oidToHostName[oid] = hostName
+                        }
+                        if (oid != null) {
+                            oidToActive[oid] = (active == 1)
+                        }
+                    }
+                }
+                val aliasCfg = root["alias_cfg"] as? List<*>
+                aliasCfg?.forEach { item ->
+                    if (item is Map<*, *>) {
+                        val mac = item["MACAddress"]?.toString()?.trim()?.lowercase()
+                        val alias = item["HostAlias"]?.toString()?.trim().orEmpty()
+                        val host = item["HostName"]?.toString()?.trim().orEmpty()
+                        val name = if (alias.isNotEmpty()) alias else host
+                        if (!mac.isNullOrEmpty() && name.isNotEmpty()) {
+                            macToAlias[mac] = name
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (wlanJson.isNotEmpty()) {
+            try {
+                val root = gson.fromJson(wlanJson, Map::class.java)
+                val aliasCfg = root["alias_cfg"] as? List<*>
+                aliasCfg?.forEach { item ->
+                    if (item is Map<*, *>) {
+                        val mac = item["MACAddress"]?.toString()?.trim()?.lowercase()
+                        val alias = item["HostAlias"]?.toString()?.trim().orEmpty()
+                        val host = item["HostName"]?.toString()?.trim().orEmpty()
+                        val name = if (alias.isNotEmpty()) alias else host
+                        if (!mac.isNullOrEmpty() && name.isNotEmpty()) {
+                            macToAlias[mac] = name
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        val resultDevices = mutableListOf<ConnectedDeviceItem>()
+        val seenMacs = mutableSetOf<String>()
+
+        if (wlanJson.isNotEmpty()) {
+            try {
+                val root = gson.fromJson(wlanJson, Map::class.java)
+                val devCfg = root["device_cfg"] as? List<*>
+                devCfg?.forEach { item ->
+                    if (item is Map<*, *>) {
+                        val rawMac = (item["MACAddress"] ?: item["mac"])?.toString()?.trim()?.lowercase().orEmpty()
+                        if (rawMac.isEmpty() || rawMac == "00:00:00:00:00:00" || rawMac == "0.0.0.0") return@forEach
+                        seenMacs.add(rawMac)
+
+                        val ip = (item["IPAddress"] ?: item["ip"])?.toString() ?: "192.168.1.X"
+                        val oid = (item["_oid"] as? Number)?.toInt()
+                            ?: item["_oid"]?.toString()?.toDoubleOrNull()?.toInt()
+                        val activeNum = (item["Active"] as? Number)?.toInt()
+                            ?: item["Active"]?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+
+                        val sta = staClients[rawMac]
+                        val isOnline = activeNum == 1 || sta != null || (oid != null && oidToActive[oid] == true)
+
+                        var name = macToAlias[rawMac] ?: oid?.let { oidToHostName[it] } ?: item["HostName"]?.toString().orEmpty()
+                        if (name.isEmpty() || name.startsWith("Unknown_", ignoreCase = true)) {
+                            val fallbackHost = oid?.let { oidToHostName[it] } ?: ""
+                            name = if (fallbackHost.isNotEmpty() && !fallbackHost.startsWith("Unknown_")) fallbackHost else "جهاز متصل ($rawMac)"
+                        }
+
+                        val ssidInt = item["SSIDInterface"]?.toString() ?: ""
+                        val ifType = item["InterfaceType"]?.toString().orEmpty()
+                        val connType = when {
+                            ssidInt in listOf("5", "6", "7", "8") || ifType.contains("ac", true) || ifType.contains("ax", true) -> "Wi-Fi (5 GHz)"
+                            ssidInt in listOf("1", "2", "3", "4") || ifType.contains("802.11", true) || sta != null -> "Wi-Fi (2.4 GHz)"
+                            ifType.contains("eth", true) || ifType.contains("lan", true) -> "كابل إيثرنت (LAN)"
+                            else -> if (sta != null) "Wi-Fi" else "شبكة محلية"
+                        }
+
+                        val signalDbm = sta?.signalDbm?.ifEmpty { null }
+
+                        resultDevices.add(
+                            ConnectedDeviceItem(
+                                ip = ip,
+                                mac = rawMac.uppercase(),
+                                hostName = name,
+                                connectionType = connType,
+                                signalDbm = signalDbm,
+                                isOnline = isOnline
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        for ((mac, sta) in staClients) {
+            if (!seenMacs.contains(mac)) {
+                seenMacs.add(mac)
+                val name = macToAlias[mac] ?: "جهاز واي فاي ($mac)"
+                resultDevices.add(
+                    ConnectedDeviceItem(
+                        ip = "DHCP (نشط)",
+                        mac = mac.uppercase(),
+                        hostName = name,
+                        connectionType = if (sta.ssid.contains("5g", true)) "Wi-Fi (5 GHz)" else "Wi-Fi (2.4 GHz)",
+                        signalDbm = sta.signalDbm.ifEmpty { null },
+                        isOnline = true
+                    )
+                )
+            }
+        }
+
+        resultDevices.sortWith(compareByDescending<ConnectedDeviceItem> { it.isOnline }.thenBy { it.hostName })
+        return resultDevices
     }
 
     private fun parseMacFilterEntries(json: String): List<MacFilterEntry> {

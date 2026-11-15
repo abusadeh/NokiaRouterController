@@ -1,5 +1,6 @@
 package com.nokiarouter.controller.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -50,14 +51,25 @@ fun DevicesScreen(
                         color = Color.White
                     )
                     Text(
-                        text = "قائمة الأجهزة المتصلة حالياً بالراوتر",
+                        text = "الأجهزة المكتشفة في شبكتك المنزلية",
                         style = MaterialTheme.typography.bodyMedium,
                         color = AccentCyan
                     )
                 }
 
-                IconButton(onClick = { viewModel.loadAllData() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "تحديث", tint = AccentCyan)
+                IconButton(
+                    onClick = { viewModel.refreshConnectedDevices() },
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = AccentCyan,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = "تحديث", tint = AccentCyan)
+                    }
                 }
             }
         }
@@ -74,10 +86,33 @@ fun DevicesScreen(
                             .fillMaxWidth()
                             .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        CircularProgressIndicator(color = AccentCyan)
-                        Text("جاري استكشاف الأجهزة المتصلة بالراوتر...", color = Color.Gray)
+                        if (isLoading) {
+                            CircularProgressIndicator(color = AccentCyan)
+                            Text("جاري استكشاف الأجهزة المتصلة بالراوتر...", color = Color.Gray)
+                        } else {
+                            Icon(
+                                Icons.Default.DevicesOther,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text(
+                                "لم يتم العثور على أجهزة متصلة أو يلزم التحديث",
+                                color = Color.LightGray,
+                                fontSize = 14.sp
+                            )
+                            Button(
+                                onClick = { viewModel.refreshConnectedDevices() },
+                                colors = ButtonDefaults.buttonColors(containerColor = NokiaBlue),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("استكشاف الأجهزة الآن")
+                            }
+                        }
                     }
                 }
             }
@@ -115,11 +150,14 @@ fun DeviceItemCard(
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
                     val icon: ImageVector = when {
-                        device.connectionType.contains("LAN", ignoreCase = true) -> Icons.Default.Computer
+                        device.connectionType.contains("LAN", ignoreCase = true) || device.hostName.contains("DESKTOP", true) || device.hostName.contains("PC", true) -> Icons.Default.Computer
                         device.hostName.contains("TV", ignoreCase = true) -> Icons.Default.Tv
+                        device.hostName.contains("IPC", ignoreCase = true) || device.hostName.contains("camera", true) -> Icons.Default.Videocam
+                        device.hostName.contains("vacuum", true) || device.hostName.contains("dreame", true) -> Icons.Default.CleaningServices
                         else -> Icons.Default.Smartphone
                     }
 
@@ -134,12 +172,23 @@ fun DeviceItemCard(
                     }
 
                     Column {
-                        Text(
-                            text = device.hostName,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 15.sp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = device.hostName,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 15.sp
+                            )
+                            // Online indicator dot
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(
+                                        if (device.isOnline) SuccessGreen else Color.Gray,
+                                        CircleShape
+                                    )
+                            )
+                        }
                         Text(
                             text = device.ip,
                             fontFamily = FontFamily.Monospace,
@@ -149,17 +198,28 @@ fun DeviceItemCard(
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = DarkSurfaceCard
-                ) {
-                    Text(
-                        text = device.connectionType,
-                        color = AccentCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = DarkSurfaceCard
+                    ) {
+                        Text(
+                            text = device.connectionType,
+                            color = AccentCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    if (device.signalDbm != null) {
+                        Text(
+                            text = "📶 ${device.signalDbm}",
+                            color = SuccessGreen,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
