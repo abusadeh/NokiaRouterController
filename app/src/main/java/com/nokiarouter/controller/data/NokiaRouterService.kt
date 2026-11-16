@@ -203,7 +203,11 @@ class NokiaRouterService(
             val encodedSsid = URLEncoder.encode(item.ssid.trim(), "UTF-8")
             val encodedPwd = URLEncoder.encode(item.password.trim(), "UTF-8")
             val isEnabledFlag = if (item.isEnabled) "1" else "0"
-            val encryptMode = if (item.securityMode.contains("None", ignoreCase = true) || item.password.isEmpty()) "None" else "Private2"
+            val isOpenMode = item.securityMode.contains("None", ignoreCase = true) ||
+                item.securityMode.contains("Open", ignoreCase = true) ||
+                item.isGuestOrOpen ||
+                item.password.isBlank()
+            val encryptMode = if (isOpenMode) "None" else "Private2"
 
             val bandwidthCode = when {
                 item.bandwidth.contains("160") -> "3"
@@ -230,8 +234,18 @@ class NokiaRouterService(
                 .append("&max_user=").append(item.maxUsers)
                 .append("&wl_encryptmode=").append(encryptMode)
 
-            if (encryptMode != "None") {
+            if (isOpenMode) {
+                params.append("&wl_weptype=None")
+                    .append("&wepKeyBit=")
+                    .append("&wepKey1=")
+                    .append("&wpaenc=")
+                    .append("&wl_wps=0")
+                    .append("&wl_wpsmode=0")
+                    .append("&wl_pin=")
+                    .append("&wl_wpaver=None")
+            } else {
                 params.append("&wpaKey=").append(encodedPwd)
+                    .append("&wl_wpaver=11i")
             }
 
             params.append("&dnName=dfault&newDomain=&wanList=-2&nofIP=24&wl_enable=on")
@@ -930,19 +944,20 @@ class NokiaRouterService(
                             ?: item["encryption_mode"]?.toString()
                             ?: ""
 
-                        val isExplicitlyOpen = (beaconType.equals("None", ignoreCase = true) || encryptMode.equals("None", ignoreCase = true))
-                            && clearPassword.isEmpty()
+                        val isExplicitlyOpen = beaconType.equals("None", ignoreCase = true) ||
+                            encryptMode.equals("None", ignoreCase = true)
+
+                        val finalPassword = if (isExplicitlyOpen) "" else clearPassword
+                        val isTrulyOpen = isExplicitlyOpen
 
                         val securityStr = when {
-                            isExplicitlyOpen -> "مفتوحة بدون باسورد (Open)"
+                            isTrulyOpen -> "مفتوحة بدون باسورد (Open)"
                             beaconType.contains("WPA3", ignoreCase = true) -> "WPA3-SAE"
                             beaconType.contains("11i", ignoreCase = true) || beaconType.contains("WPA2", ignoreCase = true) -> "WPA2-PSK"
                             beaconType.contains("WPA", ignoreCase = true) -> "WPA/WPA2 Personal"
-                            clearPassword.isNotEmpty() -> "WPA2-PSK"
+                            finalPassword.isNotEmpty() -> "WPA2-PSK"
                             else -> "WPA/WPA2 Personal"
                         }
-
-                        val isTrulyOpen = isExplicitlyOpen && clearPassword.isEmpty()
 
                         output.add(
                             WifiNetworkItem(
@@ -952,7 +967,7 @@ class NokiaRouterService(
                                 isEnabled = enable == 1,
                                 isBroadcast = true,
                                 securityMode = securityStr,
-                                password = clearPassword,
+                                password = finalPassword,
                                 channel = channel,
                                 isGuestOrOpen = isTrulyOpen
                             )

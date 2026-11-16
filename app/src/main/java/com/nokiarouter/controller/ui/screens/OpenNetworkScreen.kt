@@ -40,14 +40,15 @@ fun OpenNetworkScreen(
     val statusMsg by viewModel.statusMessage.collectAsState()
     val context = LocalContext.current
 
+    val activeOpenSsid by viewModel.openNetworkSsid.collectAsState()
+
     // Filter genuine open networks: strictly MUST have empty password AND must NOT be WPA/11i/SAE
     val openNetworks = wifiNetworks.filter { net ->
-        net.password.isBlank() &&
-        !net.password.contains("•") &&
         (net.isGuestOrOpen || net.securityMode.contains("None", ignoreCase = true) || net.securityMode.contains("Open", ignoreCase = true)) &&
         !net.securityMode.contains("WPA", ignoreCase = true) &&
         !net.securityMode.contains("11i", ignoreCase = true) &&
-        !net.securityMode.contains("SAE", ignoreCase = true)
+        !net.securityMode.contains("SAE", ignoreCase = true) &&
+        (net.password.isBlank() || net.password == "None")
     }
 
     // Devices currently connected or detected that are NOT in the whitelist
@@ -329,6 +330,8 @@ fun OpenNetworkScreen(
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    val isSelected = openNet.ssid.equals(activeOpenSsid, ignoreCase = true)
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -336,15 +339,47 @@ fun OpenNetworkScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                        ) {
                             Icon(Icons.Default.Wifi, contentDescription = null, tint = SuccessGreen)
                             Column {
-                                Text(openNet.ssid, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(openNet.ssid, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isSelected) AccentCyan.copy(alpha = 0.2f) else DarkSurfaceCard,
+                                        modifier = Modifier.padding(start = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isSelected) "المختارة للـ MAC" else "تعيين للـ MAC",
+                                            fontSize = 10.sp,
+                                            color = if (isSelected) AccentCyan else Color.LightGray,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                                 Text("${openNet.band} • بدون باسورد (Open)", color = SuccessGreen, fontSize = 11.sp)
                             }
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (!isSelected) {
+                                TextButton(
+                                    onClick = { viewModel.selectOpenNetwork(openNet.ssid) },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("اختيار", fontSize = 12.sp, color = AccentCyan)
+                                }
+                            }
+
                             IconButton(onClick = { networkToDelete = openNet }) {
                                 Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الشبكة", tint = DangerRed.copy(alpha = 0.8f))
                             }

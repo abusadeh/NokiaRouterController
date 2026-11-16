@@ -78,13 +78,13 @@ class AppPreferences(context: Context) {
             val type = object : TypeToken<List<WifiNetworkItem>>() {}.type
             val list = gson.fromJson<List<WifiNetworkItem>>(json, type) ?: emptyList()
             list.map { net ->
-                val isTrulyOpen = net.password.isBlank() &&
-                    !net.password.contains("•") &&
-                    (net.isGuestOrOpen || net.securityMode.contains("None", ignoreCase = true) || net.securityMode.contains("Open", ignoreCase = true)) &&
+                val isTrulyOpen = (net.isGuestOrOpen || net.securityMode.contains("None", ignoreCase = true) || net.securityMode.contains("Open", ignoreCase = true)) &&
                     !net.securityMode.contains("WPA", ignoreCase = true) &&
-                    !net.securityMode.contains("11i", ignoreCase = true)
+                    !net.securityMode.contains("11i", ignoreCase = true) &&
+                    (net.password.isBlank() || net.password == "None")
                 net.copy(
                     isGuestOrOpen = isTrulyOpen,
+                    password = if (isTrulyOpen) "" else net.password,
                     securityMode = if (isTrulyOpen) "مفتوحة بدون باسورد (Open)" else if (net.securityMode.contains("None", ignoreCase = true)) "WPA2-PSK" else net.securityMode
                 )
             }

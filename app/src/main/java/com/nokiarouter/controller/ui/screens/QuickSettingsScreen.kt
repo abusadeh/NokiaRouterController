@@ -111,6 +111,7 @@ fun QuickSettingsScreen(
     if (editingNetwork != null) {
         val net = editingNetwork!!
         var editSsid by remember { mutableStateOf(net.ssid) }
+        var editIsOpen by remember { mutableStateOf(net.isGuestOrOpen || net.password.isEmpty() || net.securityMode.contains("None", ignoreCase = true)) }
         var editPassword by remember { mutableStateOf(net.password) }
         var editEnabled by remember { mutableStateOf(net.isEnabled) }
 
@@ -125,12 +126,29 @@ fun QuickSettingsScreen(
                         label = { Text("اسم الشبكة (SSID)") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = editPassword,
-                        onValueChange = { editPassword = it },
-                        label = { Text("كلمة المرور") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("شبكة مفتوحة (بدون باسورد)", fontSize = 13.sp)
+                        Switch(
+                            checked = editIsOpen,
+                            onCheckedChange = { editIsOpen = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
+                    }
+
+                    if (!editIsOpen) {
+                        OutlinedTextField(
+                            value = editPassword,
+                            onValueChange = { editPassword = it },
+                            label = { Text("كلمة المرور") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -144,7 +162,14 @@ fun QuickSettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.updateWifiNetwork(net.copy(ssid = editSsid.trim(), password = editPassword.trim(), isEnabled = editEnabled))
+                        val updated = net.copy(
+                            ssid = editSsid.trim(),
+                            password = if (editIsOpen) "" else editPassword.trim(),
+                            securityMode = if (editIsOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
+                            isGuestOrOpen = editIsOpen,
+                            isEnabled = editEnabled
+                        )
+                        viewModel.updateWifiNetwork(updated)
                         editingNetwork = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)

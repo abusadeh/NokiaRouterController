@@ -367,6 +367,13 @@ class MainViewModel(
                 isGuestOrOpen = isTrulyOpen
             )
 
+            if (isTrulyOpen) {
+                _openNetworkSsid.value = cleanItem.ssid
+                _openNetworkEnabled.value = cleanItem.isEnabled
+                prefs.openNetworkSsid = cleanItem.ssid
+                prefs.openNetworkEnabled = cleanItem.isEnabled
+            }
+
             val updatedList = _wifiNetworks.value.map {
                 if (it.ssidIndex == cleanItem.ssidIndex && it.band == cleanItem.band) cleanItem else it
             }
@@ -380,7 +387,19 @@ class MainViewModel(
             } else {
                 _statusMessage.value = "تم حفظ التعديلات وإرسالها للراوتر!"
             }
+            loadAllData()
         }
+    }
+
+    fun selectOpenNetwork(ssid: String) {
+        _openNetworkSsid.value = ssid
+        prefs.openNetworkSsid = ssid
+        val net = _wifiNetworks.value.find { it.ssid.equals(ssid, ignoreCase = true) }
+        if (net != null) {
+            _openNetworkEnabled.value = net.isEnabled
+            prefs.openNetworkEnabled = net.isEnabled
+        }
+        _statusMessage.value = "تم اختيار شبكة ($ssid) لتكون الشبكة المفتوحة المقيدة بالـ MAC"
     }
 
     fun addNewWifiNetwork(ssid: String, band: String, password: String, isOpen: Boolean) {
@@ -406,6 +425,13 @@ class MainViewModel(
                 isGuestOrOpen = isOpen
             )
 
+            if (isOpen) {
+                _openNetworkSsid.value = ssid.trim()
+                _openNetworkEnabled.value = true
+                prefs.openNetworkSsid = ssid.trim()
+                prefs.openNetworkEnabled = true
+            }
+
             val currentList = _wifiNetworks.value.toMutableList()
             currentList.removeAll { it.ssidIndex == targetIndex && it.band == band }
             currentList.add(newItem)
@@ -419,6 +445,7 @@ class MainViewModel(
             } else {
                 _statusMessage.value = "تم إنشاء الشبكة في التطبيق وإرسال الأمر للراوتر!"
             }
+            loadAllData()
         }
     }
 
