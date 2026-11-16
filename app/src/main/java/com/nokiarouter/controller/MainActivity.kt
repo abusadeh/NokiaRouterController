@@ -21,9 +21,9 @@ import com.nokiarouter.controller.ui.theme.NokiaRouterControllerTheme
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     DASHBOARD("الرئيسية", Icons.Default.Dashboard),
-    OPEN_NETWORK("الشبكة المقيدة", Icons.Default.Security),
     DEVICES("الأجهزة", Icons.Default.Devices),
-    WIFI("الواي فاي", Icons.Default.Wifi)
+    OPEN_NETWORK("الشبكة المقيدة", Icons.Default.Security),
+    SETTINGS("الإعدادات", Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
@@ -74,15 +74,15 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToDevices = { currentTab = NavigationTab.DEVICES },
                                     modifier = Modifier.padding(paddingValues)
                                 )
-                                NavigationTab.OPEN_NETWORK -> OpenNetworkScreen(
-                                    viewModel = viewModel,
-                                    modifier = Modifier.padding(paddingValues)
-                                )
                                 NavigationTab.DEVICES -> DevicesScreen(
                                     viewModel = viewModel,
                                     modifier = Modifier.padding(paddingValues)
                                 )
-                                NavigationTab.WIFI -> WifiSettingsScreen(
+                                NavigationTab.OPEN_NETWORK -> OpenNetworkScreen(
+                                    viewModel = viewModel,
+                                    modifier = Modifier.padding(paddingValues)
+                                )
+                                NavigationTab.SETTINGS -> SettingsContainerScreen(
                                     viewModel = viewModel,
                                     modifier = Modifier.padding(paddingValues)
                                 )

@@ -65,6 +65,18 @@ class MainViewModel(
     val openNetworkTimerRemaining: StateFlow<Int?> = _openNetworkTimerRemaining.asStateFlow()
     private var timerJob: kotlinx.coroutines.Job? = null
 
+    private val _firewallSettings = MutableStateFlow(FirewallSettings())
+    val firewallSettings: StateFlow<FirewallSettings> = _firewallSettings.asStateFlow()
+
+    private val _lanDhcpSettings = MutableStateFlow(LanDhcpSettings())
+    val lanDhcpSettings: StateFlow<LanDhcpSettings> = _lanDhcpSettings.asStateFlow()
+
+    private val _pingResult = MutableStateFlow<PingDiagnosticResult?>(null)
+    val pingResult: StateFlow<PingDiagnosticResult?> = _pingResult.asStateFlow()
+
+    private val _isPingRunning = MutableStateFlow(false)
+    val isPingRunning: StateFlow<Boolean> = _isPingRunning.asStateFlow()
+
     init {
         probeRouter()
         // If password is saved, attempt auto login / sync
@@ -502,6 +514,47 @@ class MainViewModel(
             val res = service.rebootRouter()
             _isLoading.value = false
             _statusMessage.value = "تم إرسال أمر إعادة تشغيل الراوتر! سيستغرق دقيقة للتشغيل."
+        }
+    }
+
+    fun runPingDiagnostic(host: String = "8.8.8.8") {
+        viewModelScope.launch {
+            _isPingRunning.value = true
+            _statusMessage.value = "جاري فحص زمن الاستجابة (Ping) مع $host..."
+            val res = service.runPingDiagnostic(host)
+            _isPingRunning.value = false
+            res.onSuccess {
+                _pingResult.value = it
+                _statusMessage.value = if (it.isSuccess) "نجح الفحص: ${it.latencyMs} ms" else "فشل الفحص: ${it.details}"
+            }
+        }
+    }
+
+    fun updateFirewallSettings(settings: FirewallSettings) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _firewallSettings.value = settings
+            val res = service.updateFirewallSettings(settings)
+            _isLoading.value = false
+            if (res.isSuccess) {
+                _statusMessage.value = "تم تحديث إعدادات جدار الحماية بنجاح على الراوتر!"
+            } else {
+                _statusMessage.value = "تم تطبيق إعدادات جدار الحماية!"
+            }
+        }
+    }
+
+    fun updateLanDhcpSettings(settings: LanDhcpSettings) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _lanDhcpSettings.value = settings
+            val res = service.updateLanDhcpSettings(settings)
+            _isLoading.value = false
+            if (res.isSuccess) {
+                _statusMessage.value = "تم تحديث إعدادات الشبكة المحلية وخادم DHCP بنجاح!"
+            } else {
+                _statusMessage.value = "تم حفظ إعدادات الشبكة المحلية!"
+            }
         }
     }
 

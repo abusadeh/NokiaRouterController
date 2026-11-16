@@ -205,13 +205,21 @@ class NokiaRouterService(
             val isEnabledFlag = if (item.isEnabled) "1" else "0"
             val encryptMode = if (item.securityMode.contains("None", ignoreCase = true) || item.password.isEmpty()) "None" else "Private2"
 
+            val bandwidthCode = when {
+                item.bandwidth.contains("160") -> "3"
+                item.bandwidth.contains("80") -> "2"
+                item.bandwidth.contains("40") -> "1"
+                else -> "0"
+            }
+            val powerCode = item.txPower.replace("%", "").trim().ifBlank { "100" }
+
             val params = StringBuilder()
-                .append("wl_bandwidth=0")
-                .append("&wl_channel=").append(item.channel)
-                .append("&wl_power=100")
-                .append("&wl_wmm=1")
-                .append("&wl_mimo=1")
-                .append("&total_max_user=32")
+                .append("wl_bandwidth=").append(bandwidthCode)
+                .append("&wl_channel=").append(if (item.channel.isBlank()) "Auto" else item.channel)
+                .append("&wl_power=").append(powerCode)
+                .append("&wl_wmm=").append(if (item.wmm) "1" else "0")
+                .append("&wl_mimo=").append(if (item.muMimo) "1" else "0")
+                .append("&total_max_user=").append(item.maxUsers)
                 .append("&wl_id=").append(item.ssidIndex)
                 .append("&wl_ssid=").append(encodedSsid)
                 .append("&wl_ssidname=").append(encodedSsid)
@@ -219,7 +227,7 @@ class NokiaRouterService(
                 .append("&wl_broad=").append(if (item.isBroadcast) "1" else "0")
                 .append("&port_mode=0")
                 .append("&isReboot=0")
-                .append("&max_user=32")
+                .append("&max_user=").append(item.maxUsers)
                 .append("&wl_encryptmode=").append(encryptMode)
 
             if (encryptMode != "None") {
@@ -746,6 +754,76 @@ class NokiaRouterService(
                 .post(reqBody)
                 .build()
 
+            val response = client.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun runPingDiagnostic(host: String = "8.8.8.8"): Result<PingDiagnosticResult> = withContext(Dispatchers.IO) {
+        try {
+            val start = System.currentTimeMillis()
+            val socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress(host, 53), 3000)
+            val latency = System.currentTimeMillis() - start
+            socket.close()
+            Result.success(
+                PingDiagnosticResult(
+                    target = host,
+                    isSuccess = true,
+                    latencyMs = latency,
+                    details = "زمن الاستجابة: $latency ملي ثانية • الخادم متاح ومتصل"
+                )
+            )
+        } catch (e: Exception) {
+            Result.success(
+                PingDiagnosticResult(
+                    target = host,
+                    isSuccess = false,
+                    latencyMs = -1L,
+                    details = "تعذر الاتصال بالهدف ($host): ${e.message}"
+                )
+            )
+        }
+    }
+
+    suspend fun updateFirewallSettings(settings: FirewallSettings): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val attackVal = if (settings.attackProtection) "1" else "0"
+            val pingVal = if (settings.pingFromWan) "1" else "0"
+            val params = "security_level=${settings.level}&attack_protect=$attackVal&wan_ping=$pingVal"
+            val postPayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val request = Request.Builder()
+                .url("$baseUrl/firewall_web_app.cgi")
+                .post(postPayload.toRequestBody(mediaType))
+                .build()
+            val response = client.newCall(request).execute()
+            Result.success(response.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateLanDhcpSettings(settings: LanDhcpSettings): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val params = StringBuilder()
+                .append("ip_address=").append(settings.routerIp)
+                .append("&subnet_mask=").append(settings.subnetMask)
+                .append("&dhcp_start=").append(settings.dhcpStartIp)
+                .append("&dhcp_end=").append(settings.dhcpEndIp)
+                .append("&lease_time=").append(settings.leaseTimeHours * 3600)
+                .append("&primary_dns=").append(settings.primaryDns)
+                .append("&secondary_dns=").append(settings.secondaryDns)
+                .toString()
+
+            val postPayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val request = Request.Builder()
+                .url("$baseUrl/lan_config_web_app.cgi")
+                .post(postPayload.toRequestBody(mediaType))
+                .build()
             val response = client.newCall(request).execute()
             Result.success(response.isSuccessful)
         } catch (e: Exception) {
