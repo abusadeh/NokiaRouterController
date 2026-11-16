@@ -77,6 +77,14 @@ class MainViewModel(
     private val _isPingRunning = MutableStateFlow(false)
     val isPingRunning: StateFlow<Boolean> = _isPingRunning.asStateFlow()
 
+    private val _isDarkMode = MutableStateFlow(prefs.isDarkMode)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    fun toggleDarkMode(enabled: Boolean) {
+        _isDarkMode.value = enabled
+        prefs.isDarkMode = enabled
+    }
+
     init {
         probeRouter()
         // If password is saved, attempt auto login / sync

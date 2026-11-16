@@ -10,13 +10,12 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nokiarouter.controller.ui.MainViewModel
 import com.nokiarouter.controller.ui.screens.*
-import com.nokiarouter.controller.ui.theme.AccentCyan
-import com.nokiarouter.controller.ui.theme.DarkSurface
 import com.nokiarouter.controller.ui.theme.NokiaRouterControllerTheme
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
@@ -30,8 +29,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            NokiaRouterControllerTheme {
-                val viewModel: MainViewModel = viewModel()
+            val viewModel: MainViewModel = viewModel()
+            val isDarkMode by viewModel.isDarkMode.collectAsState()
+
+            NokiaRouterControllerTheme(darkTheme = isDarkMode) {
                 val isLoggedIn by viewModel.isLoggedIn.collectAsState()
 
                 Surface(
@@ -46,21 +47,28 @@ class MainActivity : ComponentActivity() {
                         Scaffold(
                             bottomBar = {
                                 NavigationBar(
-                                    containerColor = DarkSurface,
-                                    contentColor = Color.White
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    tonalElevation = 6.dp
                                 ) {
                                     NavigationTab.values().forEach { tab ->
+                                        val isSelected = currentTab == tab
                                         NavigationBarItem(
                                             icon = { Icon(tab.icon, contentDescription = tab.title) },
-                                            label = { Text(tab.title) },
-                                            selected = currentTab == tab,
+                                            label = {
+                                                Text(
+                                                    tab.title,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            },
+                                            selected = isSelected,
                                             onClick = { currentTab = tab },
                                             colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = Color.Black,
-                                                selectedTextColor = AccentCyan,
-                                                indicatorColor = AccentCyan,
-                                                unselectedIconColor = Color.Gray,
-                                                unselectedTextColor = Color.Gray
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         )
                                     }

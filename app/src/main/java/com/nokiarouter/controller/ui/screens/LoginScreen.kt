@@ -1,7 +1,9 @@
 package com.nokiarouter.controller.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,10 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nokiarouter.controller.ui.MainViewModel
-import com.nokiarouter.controller.ui.theme.AccentCyan
-import com.nokiarouter.controller.ui.theme.DarkSurface
-import com.nokiarouter.controller.ui.theme.DarkSurfaceCard
-import com.nokiarouter.controller.ui.theme.NokiaBlueLight
+import com.nokiarouter.controller.ui.theme.*
 
 @Composable
 fun LoginScreen(
@@ -53,16 +52,16 @@ fun LoginScreen(
     ) {
         // App / Router Logo & Title
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = DarkSurfaceCard,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.size(80.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Router,
                     contentDescription = null,
-                    tint = AccentCyan,
-                    modifier = Modifier.size(48.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(44.dp)
                 )
             }
         }
@@ -73,34 +72,38 @@ fun LoginScreen(
             text = "Nokia Wi-Fi Controller",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Text(
             text = "التحكم الذكي براوتر $routerModel",
             style = MaterialTheme.typography.bodyMedium,
-            color = AccentCyan
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium
         )
 
         Spacer(modifier = Modifier.height(28.dp))
 
         // Card containing inputs
         Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier.padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     value = routerIp,
                     onValueChange = { viewModel.updateRouterIp(it) },
                     label = { Text("عنوان IP الراوتر") },
                     leadingIcon = {
-                        Icon(Icons.Default.Wifi, contentDescription = null, tint = AccentCyan)
+                        Icon(Icons.Default.Wifi, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     },
+                    shape = RoundedCornerShape(14.dp),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
@@ -111,8 +114,9 @@ fun LoginScreen(
                     onValueChange = { viewModel.updateUsername(it) },
                     label = { Text("اسم المستخدم") },
                     leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = AccentCyan)
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     },
+                    shape = RoundedCornerShape(14.dp),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
@@ -123,8 +127,9 @@ fun LoginScreen(
                     onValueChange = { viewModel.updatePassword(it) },
                     label = { Text("كلمة مرور الراوتر") },
                     leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = AccentCyan)
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     },
+                    shape = RoundedCornerShape(14.dp),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
@@ -147,14 +152,14 @@ fun LoginScreen(
                     Text(
                         text = "حفظ اسم المستخدم وكلمة المرور",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
                         checked = rememberCredentials,
                         onCheckedChange = { viewModel.updateRememberCredentials(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = AccentCyan
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -162,9 +167,10 @@ fun LoginScreen(
                 if (statusMsg != null) {
                     Text(
                         text = statusMsg ?: "",
-                        color = if (statusMsg?.contains("نجاح") == true) AccentCyan else MaterialTheme.colorScheme.error,
+                        color = if (statusMsg?.contains("نجاح") == true) SuccessGreen else MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Medium,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -175,8 +181,8 @@ fun LoginScreen(
                         viewModel.login()
                     },
                     enabled = !isLoading,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = NokiaBlueLight),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -191,7 +197,8 @@ fun LoginScreen(
                         Text(
                             text = "تسجيل الدخول للراوتر",
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 }
@@ -203,7 +210,7 @@ fun LoginScreen(
         Text(
             text = "يتم حفظ الإعدادات وكلمة المرور محلياً على جهازك لتسهيل الدخول السريع",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }

@@ -1,6 +1,7 @@
 package com.nokiarouter.controller.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -73,20 +74,21 @@ fun ProSettingsScreen(
             onDismissRequest = { showFactoryResetDialog = false },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = DangerRed, modifier = Modifier.size(40.dp)) },
             title = { Text("تحذير: إعادة ضبط المصنع", fontWeight = FontWeight.Bold, color = DangerRed) },
-            text = { Text("سيؤدي هذا الإجراء إلى مسح كافة إعدادات الراوتر وكلمات المرور واستعادة ضبط المصنع الافتراضي لشركة الاتصالات. هل ترغب بالاستمرار؟", color = Color.LightGray) },
+            text = { Text("سيؤدي هذا الإجراء إلى مسح كافة إعدادات الراوتر وكلمات المرور واستعادة ضبط المصنع الافتراضي لشركة الاتصالات. هل ترغب بالاستمرار؟", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
                         Toast.makeText(context, "تم إلغاء الأمر للحماية، يتطلب الوصول المباشر للراوتر", Toast.LENGTH_LONG).show()
                         showFactoryResetDialog = false
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
                     Text("استعادة ضبط المصنع", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showFactoryResetDialog = false }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { showFactoryResetDialog = false }) { Text("إلغاء") }
             }
         )
     }
@@ -100,33 +102,43 @@ fun ProSettingsScreen(
         // Top Header
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Tune, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(24.dp))
-                            Text("الإعدادات الاحترافية (Pro)", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Text("الإعدادات الاحترافية (Pro)", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Text("التحكم الكامل في الراديو، جدار الحماية، والتشخيصات المتقدمة", fontSize = 12.sp, color = Color.Gray)
+                        Text("التحكم الكامل في الراديو، جدار الحماية، والتشخيصات", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     FilledTonalButton(
                         onClick = onNavigateToQuick,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = AccentCyan.copy(alpha = 0.2f))
+                        shape = CircleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("الوضع السريع", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("الوضع السريع", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -135,14 +147,24 @@ fun ProSettingsScreen(
         // Section 1: Advanced RF & Wireless Radios
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.WifiTethering, contentDescription = null, tint = AccentCyan)
-                        Text("إعدادات راديو الواي فاي والترددات (Wireless RF)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.WifiTethering, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("إعدادات راديو الواي فاي والترددات (Wireless RF)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     // Band Switcher (2.4G vs 5G)
@@ -151,12 +173,14 @@ fun ProSettingsScreen(
                             selected = selectedBandIndex == 0,
                             onClick = { selectedBandIndex = 0 },
                             label = { Text("تردد 2.4 GHz (تغطية أوسع)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = selectedBandIndex == 1,
                             onClick = { selectedBandIndex = 1 },
                             label = { Text("تردد 5 GHz (سرعة فائقة)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -168,6 +192,7 @@ fun ProSettingsScreen(
                             onValueChange = { rfChannel = it },
                             label = { Text("قناة البث (Channel)") },
                             supportingText = { Text(if (selectedBandIndex == 0) "Auto, 1, 6, 11" else "Auto, 36, 40, 44, 48, 149") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
 
@@ -176,6 +201,7 @@ fun ProSettingsScreen(
                             onValueChange = { rfBandwidth = it },
                             label = { Text("عرض النطاق") },
                             supportingText = { Text("20, 40, 80, 160 MHz") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -187,6 +213,7 @@ fun ProSettingsScreen(
                             onValueChange = { rfPower = it },
                             label = { Text("قوة الإرسال") },
                             supportingText = { Text("100%, 75%, 50%, 25%") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
 
@@ -195,6 +222,7 @@ fun ProSettingsScreen(
                             onValueChange = { rfMaxUsers = it },
                             label = { Text("الحد الأقصى للأجهزة") },
                             supportingText = { Text("1 - 64 متصل") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -206,10 +234,14 @@ fun ProSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("تقنية MU-MIMO", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("توزيع السرعة على أجهزة متعددة بالتوازي", color = Color.Gray, fontSize = 11.sp)
+                            Text("تقنية MU-MIMO", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("توزيع السرعة على أجهزة متعددة بالتوازي", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Switch(checked = rfMuMimo, onCheckedChange = { rfMuMimo = it })
+                        Switch(
+                            checked = rfMuMimo,
+                            onCheckedChange = { rfMuMimo = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
 
                     Row(
@@ -218,10 +250,14 @@ fun ProSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("أولوية الوسائط WMM (QoS)", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("إعطاء الأولوية لمكالمات الفيديو والألعاب", color = Color.Gray, fontSize = 11.sp)
+                            Text("أولوية الوسائط WMM (QoS)", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("إعطاء الأولوية لمكالمات الفيديو والألعاب", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Switch(checked = rfWmm, onCheckedChange = { rfWmm = it })
+                        Switch(
+                            checked = rfWmm,
+                            onCheckedChange = { rfWmm = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
 
                     Row(
@@ -230,10 +266,14 @@ fun ProSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("بث اسم الشبكة (SSID Broadcast)", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text(if (rfBroadcast) "الشبكة ظاهرة للجميع" else "الشبكة مخفية (Hidden SSID)", color = Color.Gray, fontSize = 11.sp)
+                            Text("بث اسم الشبكة (SSID Broadcast)", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(if (rfBroadcast) "الشبكة ظاهرة للجميع" else "الشبكة مخفية (Hidden SSID)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Switch(checked = rfBroadcast, onCheckedChange = { rfBroadcast = it })
+                        Switch(
+                            checked = rfBroadcast,
+                            onCheckedChange = { rfBroadcast = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
 
                     Button(
@@ -250,12 +290,13 @@ fun ProSettingsScreen(
                             viewModel.updateWifiNetwork(updated)
                             Toast.makeText(context, "تم تطبيق إعدادات الراديو على الراوتر", Toast.LENGTH_SHORT).show()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, tint = Color.Black)
+                        Icon(Icons.Default.Save, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("حفظ وتطبيق إعدادات الراديو", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text("حفظ وتطبيق إعدادات الراديو", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -264,14 +305,24 @@ fun ProSettingsScreen(
         // Section 2: Live Ping & Latency Diagnostics
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan)
-                        Text("تشخيصات الاتصال والـ Ping الحي", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("تشخيصات الاتصال والـ Ping الحي", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -279,18 +330,21 @@ fun ProSettingsScreen(
                             selected = pingHost == "8.8.8.8",
                             onClick = { pingHost = "8.8.8.8" },
                             label = { Text("Google (8.8.8.8)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = pingHost == "1.1.1.1",
                             onClick = { pingHost = "1.1.1.1" },
                             label = { Text("Cloudflare (1.1.1.1)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = pingHost == "192.168.1.254",
                             onClick = { pingHost = "192.168.1.254" },
                             label = { Text("الراوتر المحلي") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -301,7 +355,7 @@ fun ProSettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("الهدف: $pingHost", fontWeight = FontWeight.SemiBold, color = Color.White, fontSize = 14.sp)
+                            Text("الهدف: $pingHost", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                             if (pingResult != null) {
                                 val res = pingResult!!
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -318,22 +372,22 @@ fun ProSettingsScreen(
                                     )
                                 }
                             } else {
-                                Text("اضغط للبدء بقياس سرعة الاستجابة", color = Color.Gray, fontSize = 12.sp)
+                                Text("اضغط للبدء بقياس سرعة الاستجابة", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                         }
 
                         Button(
                             onClick = { viewModel.runPingDiagnostic(pingHost) },
                             enabled = !isPingRunning,
-                            colors = ButtonDefaults.buttonColors(containerColor = NokiaBlueLight),
-                            shape = RoundedCornerShape(10.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             if (isPingRunning) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("فحص Ping", fontSize = 12.sp)
+                                Text("فحص Ping", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -344,34 +398,47 @@ fun ProSettingsScreen(
         // Section 3: Firewall & Attack Protection
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Security, contentDescription = null, tint = AccentCyan)
-                        Text("جدار الحماية والأمان (Firewall & DoS)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("جدار الحماية والأمان (Firewall & DoS)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
-                    Text("مستوى حماية الجدار الناري:", fontSize = 13.sp, color = Color.LightGray)
+                    Text("مستوى حماية الجدار الناري:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = fwLevel == "High",
                             onClick = { fwLevel = "High" },
                             label = { Text("مرتفع (High)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = fwLevel == "Low",
                             onClick = { fwLevel = "Low" },
                             label = { Text("منخفض (Low)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
                             selected = fwLevel == "Off",
                             onClick = { fwLevel = "Off" },
                             label = { Text("معطل (Off)") },
+                            shape = CircleShape,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -382,10 +449,14 @@ fun ProSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("الحماية من هجمات DoS واختراق المنافذ", color = Color.White, fontSize = 14.sp)
-                            Text("حجب هجمات الإغراق وهجمات SYN Flood", color = Color.Gray, fontSize = 11.sp)
+                            Text("الحماية من هجمات DoS واختراق المنافذ", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                            Text("حجب هجمات الإغراق وهجمات SYN Flood", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Switch(checked = fwAttackProtect, onCheckedChange = { fwAttackProtect = it })
+                        Switch(
+                            checked = fwAttackProtect,
+                            onCheckedChange = { fwAttackProtect = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
 
                     Row(
@@ -394,10 +465,14 @@ fun ProSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("حجب استجابة Ping من الإنترنت الخارجي", color = Color.White, fontSize = 14.sp)
-                            Text("إخفاء الراوتر عن مواقع الفحص الخارجية", color = Color.Gray, fontSize = 11.sp)
+                            Text("حجب استجابة Ping من الإنترنت الخارجي", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                            Text("إخفاء الراوتر عن مواقع الفحص الخارجية", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Switch(checked = fwWanPing, onCheckedChange = { fwWanPing = it })
+                        Switch(
+                            checked = fwWanPing,
+                            onCheckedChange = { fwWanPing = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
 
                     OutlinedButton(
@@ -406,9 +481,9 @@ fun ProSettingsScreen(
                             Toast.makeText(context, "تم حفظ إعدادات جدار الحماية", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("تطبيق إعدادات جدار الحماية")
+                        Text("تطبيق إعدادات جدار الحماية", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -417,14 +492,24 @@ fun ProSettingsScreen(
         // Section 4: LAN & DHCP Settings
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Lan, contentDescription = null, tint = AccentCyan)
-                        Text("إعدادات الشبكة المحلية وخادم DHCP", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Lan, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("إعدادات الشبكة المحلية وخادم DHCP", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -432,12 +517,14 @@ fun ProSettingsScreen(
                             value = lanIp,
                             onValueChange = { lanIp = it },
                             label = { Text("عنوان الراوتر (Gateway)") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = lanSubnet,
                             onValueChange = { lanSubnet = it },
                             label = { Text("قناع الشبكة (Mask)") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -447,12 +534,14 @@ fun ProSettingsScreen(
                             value = dhcpStart,
                             onValueChange = { dhcpStart = it },
                             label = { Text("بداية نطاق DHCP") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = dhcpEnd,
                             onValueChange = { dhcpEnd = it },
                             label = { Text("نهاية نطاق DHCP") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -462,12 +551,14 @@ fun ProSettingsScreen(
                             value = primaryDns,
                             onValueChange = { primaryDns = it },
                             label = { Text("DNS الأساسي") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = secondaryDns,
                             onValueChange = { secondaryDns = it },
                             label = { Text("DNS الثانوي") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -487,9 +578,9 @@ fun ProSettingsScreen(
                             Toast.makeText(context, "تم حفظ إعدادات الشبكة المحلية", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("حفظ إعدادات خادم DHCP والشبكة")
+                        Text("حفظ إعدادات خادم DHCP والشبكة", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -498,39 +589,49 @@ fun ProSettingsScreen(
         // Section 5: Optical PON & Hardware Info
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Router, contentDescription = null, tint = AccentCyan)
-                        Text("بيانات عتاد الراوتر والألياف الضوئية (GPON)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Router, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Text("بيانات عتاد الراوتر والألياف الضوئية (GPON)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("الموديل والمصنّع:", color = Color.Gray, fontSize = 13.sp)
-                        Text("Nokia GPON ONT G-1426G-A", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("الموديل والمصنّع:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("Nokia GPON ONT G-1426G-A", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("إصدار السوفتوير:", color = Color.Gray, fontSize = 13.sp)
-                        Text("2403.23.09.A17 (Operator: NOKL)", color = AccentCyan, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("إصدار السوفتوير:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("2403.23.09.A17 (Operator: NOKL)", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("حالة مسار الفايبر (PON Link):", color = Color.Gray, fontSize = 13.sp)
+                        Text("حالة مسار الفايبر (PON Link):", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         Text("${wanStatus.ponStatus} • ${wanStatus.maxBitRate}", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("عنوان WAN IP الخارجي:", color = Color.Gray, fontSize = 13.sp)
-                        Text(wanStatus.externalIp, color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                        Text("عنوان WAN IP الخارجي:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text(wanStatus.externalIp, color = MaterialTheme.colorScheme.onSurface, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("مدة استمرار الاتصال:", color = Color.Gray, fontSize = 13.sp)
-                        Text(wanStatus.uptimeFormatted, color = Color.White, fontSize = 13.sp)
+                        Text("مدة استمرار الاتصال:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text(wanStatus.uptimeFormatted, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("حركة البيانات المستلمة/المرسلة:", color = Color.Gray, fontSize = 13.sp)
-                        Text("استلام ${wanStatus.bytesReceivedFormatted} / إرسال ${wanStatus.bytesSentFormatted}", color = Color.LightGray, fontSize = 12.sp)
+                        Text("حركة البيانات المستلمة/المرسلة:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("استلام ${wanStatus.bytesReceivedFormatted} / إرسال ${wanStatus.bytesSentFormatted}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                 }
             }
@@ -539,32 +640,42 @@ fun ProSettingsScreen(
         // Section 6: Maintenance & Factory Reset
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Build, contentDescription = null, tint = WarningOrange)
-                        Text("الصيانة وإعادة التعيين", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = WarningOrange.copy(alpha = 0.12f),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Build, contentDescription = null, tint = WarningOrange)
+                            }
+                        }
+                        Text("الصيانة وإعادة التعيين", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(
                             onClick = { viewModel.rebootRouter() },
                             colors = ButtonDefaults.buttonColors(containerColor = WarningOrange),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.RestartAlt, contentDescription = null, tint = Color.Black)
+                            Icon(Icons.Default.RestartAlt, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("إعادة تشغيل", color = Color.Black, fontWeight = FontWeight.Bold)
+                            Text("إعادة تشغيل", color = Color.White, fontWeight = FontWeight.Bold)
                         }
 
                         Button(
                             onClick = { showFactoryResetDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color.White)

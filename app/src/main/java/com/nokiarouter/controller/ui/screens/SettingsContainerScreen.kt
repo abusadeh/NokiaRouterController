@@ -1,9 +1,11 @@
 package com.nokiarouter.controller.ui.screens
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
@@ -18,9 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nokiarouter.controller.ui.MainViewModel
-import com.nokiarouter.controller.ui.theme.AccentCyan
-import com.nokiarouter.controller.ui.theme.DarkSurface
-import com.nokiarouter.controller.ui.theme.DarkSurfaceCard
 
 enum class SettingsSubTab {
     QUICK,
@@ -38,49 +37,52 @@ fun SettingsContainerScreen(
         modifier = modifier
             .fillMaxSize()
     ) {
-        // Modern Segmented Tab Selector at top
+        // Modern Pill Segmented Tab Selector at top
         Surface(
-            color = DarkSurface,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(DarkSurfaceCard)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Quick Settings Tab Button
                     val isQuick = selectedTab == SettingsSubTab.QUICK
-                    Box(
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isQuick) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        border = if (isQuick) null else null,
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isQuick) AccentCyan else Color.Transparent)
+                            .clip(CircleShape)
                             .clickable { selectedTab = SettingsSubTab.QUICK }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
                     ) {
                         Row(
+                            modifier = Modifier.padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 Icons.Default.Bolt,
                                 contentDescription = null,
-                                tint = if (isQuick) Color.Black else Color.Gray,
+                                tint = if (isQuick) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "إعدادات سريعة",
-                                color = if (isQuick) Color.Black else Color.Gray,
-                                fontWeight = if (isQuick) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isQuick) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isQuick) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 13.sp
                             )
                         }
@@ -88,29 +90,30 @@ fun SettingsContainerScreen(
 
                     // Pro Settings Tab Button
                     val isPro = selectedTab == SettingsSubTab.PRO
-                    Box(
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isPro) MaterialTheme.colorScheme.primary else Color.Transparent,
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isPro) AccentCyan else Color.Transparent)
+                            .clip(CircleShape)
                             .clickable { selectedTab = SettingsSubTab.PRO }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
                     ) {
                         Row(
+                            modifier = Modifier.padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 Icons.Default.Tune,
                                 contentDescription = null,
-                                tint = if (isPro) Color.Black else Color.Gray,
+                                tint = if (isPro) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "إعدادات احترافية Pro",
-                                color = if (isPro) Color.Black else Color.Gray,
-                                fontWeight = if (isPro) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isPro) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isPro) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 13.sp
                             )
                         }

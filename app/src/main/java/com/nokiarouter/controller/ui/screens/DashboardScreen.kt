@@ -1,5 +1,6 @@
 package com.nokiarouter.controller.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,6 +38,7 @@ fun DashboardScreen(
     val wanInfo by viewModel.wanStatusInfo.collectAsState()
     val wifiNetworks by viewModel.wifiNetworks.collectAsState()
     val timerRemaining by viewModel.openNetworkTimerRemaining.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     var showRebootDialog by remember { mutableStateOf(false) }
     var selectedNetworkForQr by remember { mutableStateOf<com.nokiarouter.controller.data.WifiNetworkItem?>(null) }
@@ -52,9 +54,9 @@ fun DashboardScreen(
     if (showTimerDialog) {
         AlertDialog(
             onDismissRequest = { showTimerDialog = false },
-            title = { Text("مؤقت إيقاف الشبكة المفتوحة") },
+            title = { Text("مؤقت إيقاف الشبكة المفتوحة", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("اختر المدة التي تريد أن تظل الشبكة المفتوحة تعمل خلالها قبل إيقافها تلقائياً:")
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -65,6 +67,7 @@ fun DashboardScreen(
                                 viewModel.setOpenNetworkTimer(30)
                                 showTimerDialog = false
                             },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("30 دقيقة", fontSize = 12.sp)
@@ -74,6 +77,7 @@ fun DashboardScreen(
                                 viewModel.setOpenNetworkTimer(60)
                                 showTimerDialog = false
                             },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("ساعة", fontSize = 12.sp)
@@ -83,6 +87,7 @@ fun DashboardScreen(
                                 viewModel.setOpenNetworkTimer(120)
                                 showTimerDialog = false
                             },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("ساعتان", fontSize = 12.sp)
@@ -105,7 +110,8 @@ fun DashboardScreen(
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },
-            title = { Text("إعادة تشغيل الراوتر") },
+            icon = { Icon(Icons.Default.RestartAlt, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
+            title = { Text("إعادة تشغيل الراوتر", fontWeight = FontWeight.Bold) },
             text = { Text("هل أنت متأكد من رغبتك في إعادة تشغيل الراوتر؟ سيتم قطع الاتصال لمدة دقيقة ثم استئنافه.") },
             confirmButton = {
                 Button(
@@ -113,9 +119,10 @@ fun DashboardScreen(
                         showRebootDialog = false
                         viewModel.rebootRouter()
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("إعادة التشغيل الآن")
+                    Text("إعادة التشغيل الآن", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -135,7 +142,9 @@ fun DashboardScreen(
         // Top Header
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -144,37 +153,58 @@ fun DashboardScreen(
                         text = "لوحة التحكم",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
                         text = "$routerModel ($routerIp)",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AccentCyan
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                // Internet Status Badge
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = SuccessGreen.copy(alpha = 0.2f),
-                    modifier = Modifier.padding(4.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    // Dark / Light Theme Toggle Icon Button
+                    IconButton(
+                        onClick = { viewModel.toggleDarkMode(!isDarkMode) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(SuccessGreen, CircleShape)
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "تبديل المظهر",
+                            tint = if (isDarkMode) WarningOrange else NokiaBlue,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Text(
-                            text = "متصل",
-                            color = SuccessGreen,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
+                    }
+
+                    // Internet Status Badge (Pill shape)
+                    Surface(
+                        shape = CircleShape,
+                        color = SuccessGreen.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.25f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(SuccessGreen, CircleShape)
+                            )
+                            Text(
+                                text = "متصل",
+                                color = SuccessGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }
@@ -183,30 +213,32 @@ fun DashboardScreen(
         if (statusMsg != null) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = statusMsg ?: "",
-                            color = AccentCyan,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = { viewModel.clearStatusMessage() }) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                            Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
 
-        // Summary Metric Cards
+        // Summary Metric Cards (Sleek modern stats cards with pill icons)
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -216,16 +248,18 @@ fun DashboardScreen(
                     title = "الأجهزة المتصلة",
                     value = "${devices.size}",
                     icon = Icons.Default.Devices,
-                    containerColor = DarkSurface,
+                    iconTint = NokiaBlue,
+                    iconBg = NokiaBlue.copy(alpha = 0.12f),
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToDevices
                 )
 
                 MetricCard(
-                    title = "أجهزة الـ MAC المسموحة",
+                    title = "أجهزة MAC المصرحة",
                     value = "${macEntries.size}",
                     icon = Icons.Default.Security,
-                    containerColor = DarkSurface,
+                    iconTint = SuccessGreen,
+                    iconBg = SuccessGreen.copy(alpha = 0.12f),
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToOpenNetwork
                 )
@@ -235,107 +269,13 @@ fun DashboardScreen(
         // Internet WAN & Optical Fiber Status Card
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = SuccessGreen.copy(alpha = 0.2f),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Language, contentDescription = null, tint = SuccessGreen)
-                                }
-                            }
-
-                            Column {
-                                Text(
-                                    text = "حالة اتصال الإنترنت والألياف الضوئية",
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 15.sp
-                                )
-                                Text(
-                                    text = "IP الخارجي: ${wanInfo.externalIp}",
-                                    color = AccentCyan,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = SuccessGreen.copy(alpha = 0.2f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(modifier = Modifier.size(6.dp).background(SuccessGreen, CircleShape))
-                                Text("متصل بالإنترنت", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(color = DarkSurfaceCard)
-
-                    // Metrics Grid (Traffic & Link)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("استهلاك التحميل:", color = Color.Gray, fontSize = 11.sp)
-                            Text("⬇ ${wanInfo.bytesReceivedFormatted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                        Column {
-                            Text("استهلاك الرفع:", color = Color.Gray, fontSize = 11.sp)
-                            Text("⬆ ${wanInfo.bytesSentFormatted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                        Column {
-                            Text("سرعة الفايبر (GPON):", color = Color.Gray, fontSize = 11.sp)
-                            Text(wanInfo.maxBitRate, color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = DarkSurfaceCard,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("مدة التشغيل المتواصل:", color = Color.Gray, fontSize = 11.sp)
-                            Text(wanInfo.uptimeFormatted, color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Special Open Network Card
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -347,14 +287,114 @@ fun DashboardScreen(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = AccentCyan.copy(alpha = 0.2f),
+                                color = SuccessGreen.copy(alpha = 0.12f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = SuccessGreen)
+                                }
+                            }
+
+                            Column {
+                                Text(
+                                    text = "حالة الإنترنت والألياف الضوئية",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = "IP الخارجي: ${wanInfo.externalIp}",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = SuccessGreen.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.25f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).background(SuccessGreen, CircleShape))
+                                Text("متصل بالإنترنت", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+
+                    // Metrics Grid (Traffic & Link)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("استهلاك التحميل:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                            Text("⬇ ${wanInfo.bytesReceivedFormatted}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        Column {
+                            Text("استهلاك الرفع:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                            Text("⬆ ${wanInfo.bytesSentFormatted}", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        Column {
+                            Text("سرعة الفايبر (GPON):", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                            Text(wanInfo.maxBitRate, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("مدة التشغيل المتواصل:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                            Text(wanInfo.uptimeFormatted, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Special Open Network Card
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 modifier = Modifier.size(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.WifiTethering,
                                         contentDescription = null,
-                                        tint = AccentCyan
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -362,12 +402,13 @@ fun DashboardScreen(
                                 Text(
                                     text = "شبكة بدون باسورد (مقيدة بـ MAC)",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp
                                 )
                                 Text(
                                     text = openNetworkSsid,
-                                    color = AccentCyan,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 13.sp
                                 )
                             }
@@ -378,19 +419,20 @@ fun DashboardScreen(
                             onCheckedChange = { viewModel.toggleOpenNetwork(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = AccentCyan
+                                checkedTrackColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
 
                     if (timerRemaining != null) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = WarningOrange.copy(alpha = 0.2f),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                            shape = CircleShape,
+                            color = WarningOrange.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, WarningOrange.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -410,14 +452,14 @@ fun DashboardScreen(
                     Text(
                         text = "الشبكة مفتوحة بدون كلمة سر، ولكن لا يستطيع الدخول إليها سوى الأجهزة المحددة في قائمة الـ MAC (${macEntries.size} جهاز مسموح).",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         OutlinedButton(
                             onClick = {
@@ -431,7 +473,7 @@ fun DashboardScreen(
                                     )
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -441,7 +483,7 @@ fun DashboardScreen(
                         OutlinedButton(
                             onClick = { showTimerDialog = true },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -451,36 +493,39 @@ fun DashboardScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedButton(
+                    Button(
                         onClick = onNavigateToOpenNetwork,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("إدارة أجهزة الـ MAC المسموحة")
+                        Text("إدارة أجهزة الـ MAC المسموحة", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // Quick Controls Card
+        // Quick Controls Section
         item {
             Text(
                 text = "التحكم السريع بالراوتر",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
 
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     // LED Toggle Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -491,13 +536,25 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Lightbulb, contentDescription = null, tint = if (ledEnabled) WarningOrange else Color.Gray)
+                            Surface(
+                                shape = CircleShape,
+                                color = if (ledEnabled) WarningOrange.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Lightbulb,
+                                        contentDescription = null,
+                                        tint = if (ledEnabled) WarningOrange else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                             Column {
-                                Text("إضاءة لمبات الراوتر", fontWeight = FontWeight.SemiBold, color = Color.White)
+                                Text("إضاءة لمبات الراوتر", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                                 Text(
                                     if (ledEnabled) "اللمبات تعمل بشكل طبيعي" else "الوضع الليلي (اللمبات مطفأة)",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -505,11 +562,14 @@ fun DashboardScreen(
                         Switch(
                             checked = ledEnabled,
                             onCheckedChange = { viewModel.toggleLed(it) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = WarningOrange)
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = WarningOrange
+                            )
                         )
                     }
 
-                    HorizontalDivider(color = DarkSurfaceCard)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
                     // Reboot Button Row
                     Row(
@@ -521,17 +581,25 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.RestartAlt, contentDescription = null, tint = DangerRed)
+                            Surface(
+                                shape = CircleShape,
+                                color = DangerRed.copy(alpha = 0.12f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.RestartAlt, contentDescription = null, tint = DangerRed)
+                                }
+                            }
                             Column {
-                                Text("إعادة تشغيل الراوتر", fontWeight = FontWeight.SemiBold, color = Color.White)
-                                Text("تحديث الاتصال وإصلاح البطء", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                Text("إعادة تشغيل الراوتر", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("تحديث الاتصال وإصلاح البطء", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
                         Button(
                             onClick = { showRebootDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = DangerRed.copy(alpha = 0.2f)),
-                            shape = RoundedCornerShape(8.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = DangerRed.copy(alpha = 0.12f)),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Text("إعادة تشغيل", color = DangerRed, fontWeight = FontWeight.Bold)
                         }
@@ -547,23 +615,62 @@ fun MetricCard(
     title: String,
     value: String,
     icon: ImageVector,
-    containerColor: Color,
+    iconTint: Color,
+    iconBg: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(24.dp))
-            Text(text = value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(text = title, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = iconBg,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

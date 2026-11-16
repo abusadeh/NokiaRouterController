@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -44,8 +45,10 @@ fun WifiQrDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
             Column(
@@ -65,18 +68,18 @@ fun WifiQrDialog(
                             text = "رمز QR للواي فاي",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = network.ssid,
-                            color = AccentCyan,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                     }
 
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -84,6 +87,7 @@ fun WifiQrDialog(
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.White,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.size(220.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(12.dp)) {
@@ -95,37 +99,37 @@ fun WifiQrDialog(
                         }
                     }
                 } else {
-                    Text("تعذر إنشاء رمز QR", color = Color.Gray)
+                    Text("تعذر إنشاء رمز QR", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 Text(
                     text = "امسح الكود بكاميرا أي هاتف للاتصال مباشرة بالشبكة",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
                 if (!isOpen && network.password.isNotEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceCard,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("كلمة المرور:", color = Color.Gray, fontSize = 11.sp)
+                                Text("كلمة المرور:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                                 Text(
                                     text = network.password,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    fontSize = 14.sp
                                 )
                             }
 
@@ -135,7 +139,7 @@ fun WifiQrDialog(
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(context, "تم نسخ كلمة المرور!", Toast.LENGTH_SHORT).show()
                             }) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = AccentCyan, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -143,11 +147,11 @@ fun WifiQrDialog(
 
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = NokiaBlue),
-                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("تم")
+                    Text("تم", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

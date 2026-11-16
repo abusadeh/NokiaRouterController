@@ -1,9 +1,7 @@
 package com.nokiarouter.controller.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,14 +66,14 @@ fun OpenNetworkScreen(
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            icon = { Icon(Icons.Default.AddModerator, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(36.dp)) },
-            title = { Text("إضافة جهاز مصرح له بالـ MAC", fontWeight = FontWeight.Bold, color = Color.White) },
+            icon = { Icon(Icons.Default.AddModerator, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp)) },
+            title = { Text("إضافة جهاز مصرح له بالـ MAC", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         text = "أدخل عنوان الـ MAC للجهاز الذي تريد السماح له بالاتصال بالشبكات المفتوحة:",
                         fontSize = 13.sp,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     OutlinedTextField(
@@ -83,6 +81,7 @@ fun OpenNetworkScreen(
                         onValueChange = { newNameInput = it },
                         label = { Text("اسم الجهاز (مثال: هاتف أحمد)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -92,67 +91,82 @@ fun OpenNetworkScreen(
                         label = { Text("عنوان MAC Address") },
                         placeholder = { Text("XX:XX:XX:XX:XX:XX") },
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     Text(
                         text = "مثال: 1C:69:7A:B4:92:11 أو 1C-69-7A-B4-92-11",
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (newMacInput.isNotBlank()) {
-                            viewModel.addMacToWhitelist(newMacInput.trim(), newNameInput.trim())
+                        val cleanMac = newMacInput.trim().replace("-", ":")
+                        if (cleanMac.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"))) {
+                            viewModel.addMacToWhitelist(cleanMac, newNameInput.trim())
+                            showAddDialog = false
                             newMacInput = ""
                             newNameInput = ""
-                            showAddDialog = false
+                        } else {
+                            Toast.makeText(context, "يرجى إدخال عنوان MAC صحيح مكون من 12 خانة سداسية عشرية", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("إضافة وسماح فوري", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("إضافة وتصريح", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { showAddDialog = false }) { Text("إلغاء") }
             }
         )
     }
 
-    // Create New Open Network Dialog
+    // Create Open Wi-Fi Dialog
     if (showCreateOpenWifiDialog) {
-        var openSsidName by remember { mutableStateOf("") }
-        var openBand by remember { mutableStateOf("2.4 GHz") }
+        var openSsidName by remember { mutableStateOf("Nokia_VIP_Open") }
+        var selectedBand by remember { mutableStateOf("2.4 GHz") }
 
         AlertDialog(
             onDismissRequest = { showCreateOpenWifiDialog = false },
             icon = { Icon(Icons.Default.WifiTethering, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(36.dp)) },
-            title = { Text("إنشاء شبكة مفتوحة جديدة", fontWeight = FontWeight.Bold, color = Color.White) },
+            title = { Text("بث شبكة مفتوحة جديدة (بدون باسورد)", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("أدخل اسم الشبكة المفتوحة (ستكون بدون باسورد ومحمية بالـ MAC فقط):", fontSize = 13.sp, color = Color.LightGray)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "سيتم إنشاء وبث شبكة واي فاي مفتوحة بدون كلمة مرور، وتأمينها تلقائياً بفلتر الـ MAC بحيث لا يدخلها سوى المصرح لهم.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     OutlinedTextField(
                         value = openSsidName,
                         onValueChange = { openSsidName = it },
                         label = { Text("اسم الشبكة (SSID)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = openBand == "2.4 GHz",
-                            onClick = { openBand = "2.4 GHz" },
-                            label = { Text("2.4 GHz") }
-                        )
-                        FilterChip(
-                            selected = openBand == "5 GHz",
-                            onClick = { openBand = "5 GHz" },
-                            label = { Text("5 GHz") }
-                        )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("2.4 GHz", "5 GHz").forEach { band ->
+                            FilterChip(
+                                selected = selectedBand == band,
+                                onClick = { selectedBand = band },
+                                label = { Text(band, fontWeight = FontWeight.Bold) },
+                                shape = CircleShape,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             },
@@ -160,32 +174,33 @@ fun OpenNetworkScreen(
                 Button(
                     onClick = {
                         if (openSsidName.isNotBlank()) {
-                            viewModel.addNewWifiNetwork(openSsidName.trim(), openBand, "", isOpen = true)
+                            viewModel.addNewWifiNetwork(openSsidName.trim(), selectedBand, "", true)
                             showCreateOpenWifiDialog = false
                         }
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
                 ) {
-                    Text("إنشاء وبث الشبكة", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("بث الشبكة الآن", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateOpenWifiDialog = false }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { showCreateOpenWifiDialog = false }) { Text("إلغاء") }
             }
         )
     }
 
-    // Delete MAC Dialog
+    // Delete MAC Confirmation Dialog
     if (macToDelete != null) {
         val entry = macToDelete!!
         AlertDialog(
             onDismissRequest = { macToDelete = null },
             icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
-            title = { Text("تأكيد إلغاء صلاحية الجهاز", fontWeight = FontWeight.Bold, color = Color.White) },
+            title = { Text("إلغاء تصريح الجهاز", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "هل أنت متأكد من رغبتك في إزالة الجهاز (${entry.deviceName.ifBlank { "جهاز مصرح" }} - ${entry.mac}) من القائمة المسموحة؟ لن يتمكن من الاتصال بالشبكات المفتوحة بعد ذلك.",
-                    color = Color.LightGray
+                    "هل أنت متأكد من رغبتك في حذف جهاز (${entry.deviceName.ifBlank { entry.mac }}) من القائمة البيضاء؟ لن يتمكن من الاتصال بالشبكة المفتوحة مجدداً.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -194,13 +209,14 @@ fun OpenNetworkScreen(
                         viewModel.removeMacFromWhitelist(entry.mac)
                         macToDelete = null
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("إلغاء الصلاحية والحرمان", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("إلغاء الصلاحية والحرمان", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { macToDelete = null }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { macToDelete = null }) { Text("إلغاء") }
             }
         )
     }
@@ -211,11 +227,11 @@ fun OpenNetworkScreen(
         AlertDialog(
             onDismissRequest = { networkToDelete = null },
             icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
-            title = { Text("حذف الشبكة المفتوحة", fontWeight = FontWeight.Bold, color = Color.White) },
+            title = { Text("حذف الشبكة المفتوحة", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     "هل أنت متأكد من رغبتك في حذف أو إيقاف الشبكة المفتوحة (${net.ssid})؟ سيتم إيقاف بثها من الراوتر.",
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -224,13 +240,14 @@ fun OpenNetworkScreen(
                         viewModel.deleteWifiNetwork(net)
                         networkToDelete = null
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("حذف الشبكة", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("حذف الشبكة", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { networkToDelete = null }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { networkToDelete = null }) { Text("إلغاء") }
             }
         )
     }
@@ -244,34 +261,45 @@ fun OpenNetworkScreen(
         // Main Screen Header Card
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(28.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.12f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = SuccessGreen)
+                                }
+                            }
                             Column {
-                                Text("الشبكات المفتوحة المقيدة بالـ MAC", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color.White)
-                                Text("الدخول مقتصر حصرياً على الأجهزة المعرفة", fontSize = 12.sp, color = Color.Gray)
+                                Text("الشبكات المفتوحة المقيدة بالـ MAC", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text("الدخول مقتصر حصرياً على الأجهزة المعرفة", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = SuccessGreen.copy(alpha = 0.2f)
+                            shape = CircleShape,
+                            color = SuccessGreen.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.25f))
                         ) {
                             Text(
                                 text = "حظر صارم (Whitelist)",
                                 color = SuccessGreen,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -279,15 +307,15 @@ fun OpenNetworkScreen(
                     Text(
                         text = "الشبكات المفتوحة محمية بنظام القائمة البيضاء (Allowlist): يرفض الراوتر تلقائياً اتصال أي هاتف أو جهاز ما لم يكن عنوان الـ MAC الخاص به مضافاً ومسموحاً له في هذه القائمة.",
                         fontSize = 12.sp,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Button(
                         onClick = { viewModel.enforceOpenNetworkWhitelist() },
-                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen.copy(alpha = 0.25f)),
-                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                        contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
                         Icon(Icons.Default.Security, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -304,12 +332,12 @@ fun OpenNetworkScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("الشبكات المفتوحة المفعلة (${openNetworks.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                Text("الشبكات المفتوحة المفعلة (${openNetworks.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground)
                 FilledTonalButton(
                     onClick = { showCreateOpenWifiDialog = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = SuccessGreen.copy(alpha = 0.2f)),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    shape = CircleShape,
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = SuccessGreen.copy(alpha = 0.15f)),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -321,25 +349,29 @@ fun OpenNetworkScreen(
         if (openNetworks.isEmpty()) {
             item {
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("لا توجد شبكة مفتوحة حالياً", color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text("اضغط على (إضافة شبكة مفتوحة) لإنشاء شبكة جديدة بدون باسورد محمية بالـ MAC.", color = Color.Gray, fontSize = 12.sp)
+                        Text("لا توجد شبكة مفتوحة حالياً", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                        Text("اضغط على (إضافة شبكة مفتوحة) لإنشاء شبكة جديدة بدون باسورد محمية بالـ MAC.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                 }
             }
         } else {
             items(openNetworks) { openNet ->
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     val isSelected = openNet.ssid.equals(activeOpenSsid, ignoreCase = true)
@@ -347,38 +379,46 @@ fun OpenNetworkScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.Wifi, contentDescription = null, tint = SuccessGreen)
+                            Surface(
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.12f),
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Wifi, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
+                                }
+                            }
+
                             Column {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text(openNet.ssid, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                    Text(openNet.ssid, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = if (isSelected) AccentCyan.copy(alpha = 0.2f) else DarkSurfaceCard,
+                                        shape = CircleShape,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                                         modifier = Modifier.padding(start = 2.dp)
                                     ) {
                                         Text(
                                             text = if (isSelected) "المختارة للـ MAC" else "تعيين للـ MAC",
                                             fontSize = 10.sp,
-                                            color = if (isSelected) AccentCyan else Color.LightGray,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
-                                Text("${openNet.band} • بدون باسورد (Open)", color = SuccessGreen, fontSize = 11.sp)
+                                Text("${openNet.band} • بدون باسورد (Open)", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             }
                         }
 
@@ -388,7 +428,7 @@ fun OpenNetworkScreen(
                                     onClick = { viewModel.selectOpenNetwork(openNet.ssid) },
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
-                                    Text("اختيار", fontSize = 12.sp, color = AccentCyan)
+                                    Text("اختيار", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -401,7 +441,10 @@ fun OpenNetworkScreen(
                                 onCheckedChange = { isChecked ->
                                     viewModel.updateWifiNetwork(openNet.copy(isEnabled = isChecked))
                                 },
-                                colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = SuccessGreen
+                                )
                             )
                         }
                     }
@@ -413,41 +456,42 @@ fun OpenNetworkScreen(
         if (unregisteredDevices.isNotEmpty()) {
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = NokiaBlueDark.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Radar, contentDescription = null, tint = AccentCyan)
-                            Text("أجهزة مكتشفة بانتظار السماح (${unregisteredDevices.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                            Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("أجهزة مكتشفة بانتظار السماح (${unregisteredDevices.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Text("أجهزة متصلة أو متواجدة حولك، اضغط على (سماح فوري) لإضافتها مباشرة بالـ MAC:", color = Color.LightGray, fontSize = 12.sp)
+                        Text("أجهزة متصلة أو متواجدة حولك، اضغط على (سماح فوري) لإضافتها مباشرة بالـ MAC:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             unregisteredDevices.take(4).forEach { dev ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(DarkSurfaceCard, RoundedCornerShape(10.dp))
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(dev.hostName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
-                                        Text(dev.mac, fontFamily = FontFamily.Monospace, color = AccentCyan, fontSize = 11.sp)
+                                        Text(dev.hostName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                                        Text(dev.mac, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                                     }
 
                                     Button(
                                         onClick = { viewModel.addMacToWhitelist(dev.mac, dev.hostName) },
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                     ) {
-                                        Icon(Icons.Default.AddModerator, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.AddModerator, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("سماح فوري", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("سماح فوري", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -466,19 +510,19 @@ fun OpenNetworkScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("الأجهزة المعرفة والمصرح لها (${macList.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-                        Text("هذه الأجهزة فقط يسمح لها بالدخول للشبكة المفتوحة", fontSize = 12.sp, color = Color.Gray)
+                        Text("الأجهزة المعرفة والمصرح لها (${macList.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
+                        Text("هذه الأجهزة فقط يسمح لها بالدخول للشبكة المفتوحة", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Button(
                         onClick = { showAddDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("إضافة MAC يدوي", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("إضافة MAC يدوي", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -487,9 +531,9 @@ fun OpenNetworkScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("بحث باسم الجهاز أو عنوان الـ MAC...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -504,8 +548,10 @@ fun OpenNetworkScreen(
         if (filteredList.isEmpty()) {
             item {
                 Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -515,17 +561,27 @@ fun OpenNetworkScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.DevicesOther, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
-                        Text("لا توجد أجهزة مسجلة في القائمة حالياً", color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text("اضغط على (سماح فوري) للأجهزة المكتشفة أو زر (إضافة MAC يدوي) لتسجيل جهاز جديد.", color = Color.Gray, fontSize = 12.sp)
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.DevicesOther, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        Text("لا توجد أجهزة مسجلة في القائمة حالياً", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                        Text("اضغط على (سماح فوري) للأجهزة المكتشفة أو زر (إضافة MAC يدوي) لتسجيل جهاز جديد.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                 }
             }
         } else {
             items(filteredList) { entry ->
                 Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -542,7 +598,7 @@ fun OpenNetworkScreen(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = SuccessGreen.copy(alpha = 0.15f),
+                                color = SuccessGreen.copy(alpha = 0.12f),
                                 modifier = Modifier.size(42.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -554,41 +610,43 @@ fun OpenNetworkScreen(
                                 Text(
                                     text = entry.deviceName.ifBlank { "جهاز مصرح له" },
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp
                                 )
                                 Text(
                                     text = entry.mac,
                                     fontFamily = FontFamily.Monospace,
-                                    color = AccentCyan,
-                                    fontSize = 13.sp
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = SuccessGreen.copy(alpha = 0.2f)
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.25f))
                             ) {
                                 Text(
                                     text = "مصرح",
                                     color = SuccessGreen,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                 )
                             }
 
                             OutlinedButton(
                                 onClick = { macToDelete = entry },
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.4f)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = "إزالة", modifier = Modifier.size(14.dp), tint = DangerRed)
-                                Spacer(modifier = Modifier.width(2.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text("إزالة", fontSize = 11.sp, color = DangerRed, fontWeight = FontWeight.Bold)
                             }
                         }

@@ -1,5 +1,6 @@
 package com.nokiarouter.controller.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,23 +43,22 @@ fun DevicesScreen(
         var newName by remember { mutableStateOf(dev.hostName) }
         AlertDialog(
             onDismissRequest = { renamingDevice = null },
+            icon = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp)) },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = AccentCyan)
-                    Text("إعادة تسمية الجهاز")
-                }
+                Text("إعادة تسمية الجهاز", fontWeight = FontWeight.Bold)
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("اختر اسماً مميزاً وسهلاً لهذا الجهاز (مثلاً: جوال أحمد، شاشة الصالة):", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("اختر اسماً مميزاً وسهلاً لهذا الجهاز (مثلاً: جوال أحمد، شاشة الصالة):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
                         label = { Text("اسم الجهاز المخصص") },
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("MAC: ${dev.mac}", color = Color.Gray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Text("MAC: ${dev.mac}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                 }
             },
             confirmButton = {
@@ -67,9 +67,10 @@ fun DevicesScreen(
                         viewModel.renameDevice(dev.mac, newName)
                         renamingDevice = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("حفظ الاسم", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("حفظ الاسم", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -85,17 +86,15 @@ fun DevicesScreen(
         val dev = blockingDevice!!
         AlertDialog(
             onDismissRequest = { blockingDevice = null },
+            icon = { Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed)
-                    Text("تأكيد حظر الجهاز")
-                }
+                Text("تأكيد حظر الجهاز", fontWeight = FontWeight.Bold)
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("هل أنت متأكد من رغبتك في حظر جهاز (${dev.hostName}) وقطع اتصاله بالكامل عن الراوتر والإنترنت؟")
-                    Text("IP: ${dev.ip}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = AccentCyan)
-                    Text("MAC: ${dev.mac}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.Gray)
+                    Text("IP: ${dev.ip}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                    Text("MAC: ${dev.mac}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             confirmButton = {
@@ -104,9 +103,10 @@ fun DevicesScreen(
                         viewModel.blockDevice(dev)
                         blockingDevice = null
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("حظر وقطع الاتصال")
+                    Text("حظر وقطع الاتصال", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -118,12 +118,11 @@ fun DevicesScreen(
     }
 
     val filteredDevices = remember(devices, searchQuery) {
-        if (searchQuery.isBlank()) devices else {
-            devices.filter {
-                it.hostName.contains(searchQuery, ignoreCase = true) ||
-                it.ip.contains(searchQuery, ignoreCase = true) ||
-                it.mac.contains(searchQuery, ignoreCase = true)
-            }
+        if (searchQuery.isBlank()) devices
+        else devices.filter {
+            it.hostName.contains(searchQuery, ignoreCase = true) ||
+            it.ip.contains(searchQuery, ignoreCase = true) ||
+            it.mac.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -131,78 +130,73 @@ fun DevicesScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Header
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
-                        text = "الأجهزة المتصلة (${devices.size})",
+                        text = "الأجهزة المتصلة",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "الأجهزة المكتشفة في شبكتك المنزلية",
+                        text = "${devices.size} جهاز متصل حالياً بالراوتر",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AccentCyan
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                IconButton(
+                FilledTonalIconButton(
                     onClick = { viewModel.refreshConnectedDevices() },
-                    enabled = !isLoading
+                    shape = CircleShape
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = AccentCyan,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = "تحديث", tint = AccentCyan)
-                    }
+                    Icon(Icons.Default.Refresh, contentDescription = "تحديث الأجهزة", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
 
-        // Search Filter Field
-        if (devices.isNotEmpty()) {
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("بحث عن جهاز بالاسم، الـ IP، أو الـ MAC...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AccentCyan) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
-                            }
+        // Search Bar
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("ابحث بالاسم أو IP أو MAC...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentCyan,
-                        unfocusedBorderColor = DarkSurfaceCard,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         if (filteredDevices.isEmpty()) {
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -213,28 +207,37 @@ fun DevicesScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(color = AccentCyan)
-                            Text("جاري استكشاف الأجهزة المتصلة بالراوتر...", color = Color.Gray)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Text("جاري استكشاف الأجهزة المتصلة بالراوتر...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
-                            Icon(
-                                Icons.Default.DevicesOther,
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(48.dp)
-                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(60.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.DevicesOther,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
                             Text(
                                 if (searchQuery.isNotEmpty()) "لا توجد نتائج مطابقة لبحثك" else "لم يتم العثور على أجهزة متصلة أو يلزم التحديث",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp
                             )
                             Button(
                                 onClick = { viewModel.refreshConnectedDevices() },
-                                colors = ButtonDefaults.buttonColors(containerColor = NokiaBlue),
-                                shape = RoundedCornerShape(8.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("استكشاف الأجهزة الآن")
+                                Text("استكشاف الأجهزة الآن", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -278,11 +281,13 @@ fun DeviceItemCard(
     onUnblock: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -303,11 +308,11 @@ fun DeviceItemCard(
 
                     Surface(
                         shape = CircleShape,
-                        color = NokiaBlueDark.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(44.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(imageVector = icon, contentDescription = null, tint = AccentCyan)
+                            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
 
@@ -319,14 +324,14 @@ fun DeviceItemCard(
                             Text(
                                 text = device.hostName,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 15.sp,
                                 modifier = Modifier.clickable { onRename() }
                             )
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "تعديل الاسم",
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(14.dp).clickable { onRename() }
                             )
                             // Online indicator dot
@@ -334,7 +339,7 @@ fun DeviceItemCard(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .background(
-                                        if (device.isOnline) SuccessGreen else Color.Gray,
+                                        if (device.isOnline) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                         CircleShape
                                     )
                             )
@@ -342,23 +347,24 @@ fun DeviceItemCard(
                         Text(
                             text = device.ip,
                             fontFamily = FontFamily.Monospace,
-                            color = Color.LightGray,
-                            fontSize = 12.sp
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = DarkSurfaceCard
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
                             text = device.connectionType,
-                            color = AccentCyan,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
 
@@ -367,13 +373,13 @@ fun DeviceItemCard(
                             text = "📶 ${device.signalDbm}",
                             color = SuccessGreen,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            HorizontalDivider(color = DarkSurfaceCard)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -381,50 +387,53 @@ fun DeviceItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "MAC:", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = "MAC:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     Text(
                         text = device.mac,
                         fontFamily = FontFamily.Monospace,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
                         fontSize = 12.sp
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (device.isBlocked) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = DangerRed.copy(alpha = 0.2f)
+                            shape = CircleShape,
+                            color = DangerRed.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.3f))
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(14.dp))
-                                Text("محظور ومطرود", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("محظور", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
                         OutlinedButton(
                             onClick = onUnblock,
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = SuccessGreen),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                         ) {
                             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = SuccessGreen)
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text("إلغاء الحظر", fontSize = 11.sp, color = SuccessGreen)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("إلغاء الحظر", fontSize = 11.sp, color = SuccessGreen, fontWeight = FontWeight.Bold)
                         }
                     } else {
                         if (isWhitelisted) {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = SuccessGreen.copy(alpha = 0.2f)
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.3f))
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
@@ -434,23 +443,23 @@ fun DeviceItemCard(
 
                             OutlinedButton(
                                 onClick = onRemoveFromWhitelist,
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = WarningOrange),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                             ) {
                                 Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = WarningOrange)
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text("إلغاء السماح", fontSize = 11.sp, color = WarningOrange)
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("حرمان", fontSize = 11.sp, color = WarningOrange, fontWeight = FontWeight.Bold)
                             }
                         } else {
-                            OutlinedButton(
+                            FilledTonalButton(
                                 onClick = onAddToWhitelist,
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SuccessGreen),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = SuccessGreen.copy(alpha = 0.15f)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                             ) {
                                 Icon(Icons.Default.AddModerator, contentDescription = null, modifier = Modifier.size(14.dp), tint = SuccessGreen)
-                                Spacer(modifier = Modifier.width(2.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text("سماح بالشبكة", fontSize = 11.sp, color = SuccessGreen, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -458,13 +467,13 @@ fun DeviceItemCard(
                         // Block Device Button
                         OutlinedButton(
                             onClick = onBlock,
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
                         ) {
                             Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(14.dp), tint = DangerRed)
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text("حظر", fontSize = 11.sp, color = DangerRed)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("حظر", fontSize = 11.sp, color = DangerRed, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

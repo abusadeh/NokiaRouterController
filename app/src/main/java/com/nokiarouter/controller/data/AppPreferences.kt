@@ -19,6 +19,7 @@ class AppPreferences(context: Context) {
         private const val KEY_OPEN_ENABLED = "key_open_enabled"
         private const val KEY_MAC_ENTRIES = "key_mac_entries"
         private const val KEY_WIFI_NETWORKS = "key_wifi_networks"
+        private const val KEY_DARK_MODE = "key_dark_mode"
     }
 
     var routerIp: String
@@ -44,6 +45,10 @@ class AppPreferences(context: Context) {
     var openNetworkEnabled: Boolean
         get() = prefs.getBoolean(KEY_OPEN_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_OPEN_ENABLED, value).apply()
+
+    var isDarkMode: Boolean
+        get() = prefs.getBoolean(KEY_DARK_MODE, false) // Default is Light Mode (false)
+        set(value) = prefs.edit().putBoolean(KEY_DARK_MODE, value).apply()
 
     fun saveMacEntries(entries: List<MacFilterEntry>) {
         val json = gson.toJson(entries)

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,8 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nokiarouter.controller.data.WifiNetworkItem
@@ -62,22 +61,19 @@ fun WifiSettingsScreen(
             title = {
                 Text(
                     text = if (isPrimary) "تعطيل وحذف الشبكة الرئيسية" else "تأكيد حذف شبكة الواي فاي",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (isPrimary) {
-                            "الشبكة '${net.ssid}' هي الشبكة الأساسية لتردد ${net.band}. حذفها سيؤدي إلى تعطيل بث الواي فاي ومسح إعداداتها من الراوتر."
-                        } else {
-                            "هل أنت متأكد من رغبتك في حذف شبكة '${net.ssid}' (${net.band})؟ سيتم إيقاف بثها ومسحها نهائياً من الراوتر."
-                        },
-                        color = Color.LightGray,
-                        fontSize = 14.sp
-                    )
-                }
+                Text(
+                    text = if (isPrimary) {
+                        "الشبكة '${net.ssid}' هي الشبكة الأساسية لتردد ${net.band}. حذفها سيؤدي إلى تعطيل بث الواي فاي ومسح إعداداتها من الراوتر."
+                    } else {
+                        "هل أنت متأكد من رغبتك في حذف شبكة '${net.ssid}' (${net.band})؟ سيتم إيقاف بثها ومسحها نهائياً من الراوتر."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
             },
             confirmButton = {
                 Button(
@@ -85,198 +81,14 @@ fun WifiSettingsScreen(
                         viewModel.deleteWifiNetwork(net)
                         networkToDelete = null
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("تأكيد الحذف", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("تأكيد الحذف", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { networkToDelete = null }) {
-                    Text("إلغاء", color = Color.LightGray)
-                }
-            }
-        )
-    }
-
-    // Dialog for adding a new Wi-Fi network
-    if (showAddDialog) {
-        var newSsid by remember { mutableStateOf("") }
-        var newBand by remember { mutableStateOf("2.4 GHz") }
-        var isOpen by remember { mutableStateOf(false) }
-        var newPassword by remember { mutableStateOf("") }
-
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.AddCircle, contentDescription = null, tint = AccentCyan)
-                    Text("إضافة شبكة واي فاي جديدة")
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = newSsid,
-                        onValueChange = { newSsid = it },
-                        label = { Text("اسم الشبكة (SSID)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Frequency Band Selection
-                    Text("تردد الشبكة:", fontSize = 13.sp, color = Color.LightGray)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = newBand == "2.4 GHz",
-                            onClick = { newBand = "2.4 GHz" },
-                            label = { Text("2.4 GHz (تغطية أوسع)") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = newBand == "5 GHz",
-                            onClick = { newBand = "5 GHz" },
-                            label = { Text("5 GHz (سرعة فائقة)") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Open vs Protected Toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("شبكة مفتوحة (بدون باسورد)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("مناسبة للاستخدام مع فلتر الـ MAC", fontSize = 11.sp, color = Color.Gray)
-                        }
-                        Switch(
-                            checked = isOpen,
-                            onCheckedChange = { isOpen = it },
-                            colors = SwitchDefaults.colors(checkedTrackColor = AccentCyan)
-                        )
-                    }
-
-                    if (!isOpen) {
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = { newPassword = it },
-                            label = { Text("كلمة مرور الواي فاي (8 أحرف أو أكثر)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newSsid.isNotBlank()) {
-                            viewModel.addNewWifiNetwork(newSsid, newBand, newPassword, isOpen)
-                            showAddDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
-                ) {
-                    Text("إضافة وحفظ على الراوتر", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("إلغاء")
-                }
-            }
-        )
-    }
-
-    // Dialog for editing an existing Wi-Fi network
-    if (editingNetwork != null) {
-        val net = editingNetwork!!
-        var editSsid by remember { mutableStateOf(net.ssid) }
-        var editIsOpen by remember { mutableStateOf(net.isGuestOrOpen || net.password.isEmpty() || net.securityMode.contains("None", ignoreCase = true)) }
-        var editPassword by remember { mutableStateOf(net.password) }
-        var editEnabled by remember { mutableStateOf(net.isEnabled) }
-
-        AlertDialog(
-            onDismissRequest = { editingNetwork = null },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = AccentCyan)
-                    Text("تعديل خصائص الشبكة")
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("تردد الشبكة: ${net.band}", color = AccentCyan, fontSize = 13.sp)
-
-                    OutlinedTextField(
-                        value = editSsid,
-                        onValueChange = { editSsid = it },
-                        label = { Text("اسم الشبكة (SSID)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("شبكة مفتوحة (بدون باسورد)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Switch(
-                            checked = editIsOpen,
-                            onCheckedChange = { editIsOpen = it },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
-                        )
-                    }
-
-                    if (!editIsOpen) {
-                        OutlinedTextField(
-                            value = editPassword,
-                            onValueChange = { editPassword = it },
-                            label = { Text("كلمة المرور") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("حالة تشغيل الشبكة", fontWeight = FontWeight.SemiBold)
-                        Switch(
-                            checked = editEnabled,
-                            onCheckedChange = { editEnabled = it },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val updated = net.copy(
-                            ssid = editSsid.trim(),
-                            password = if (editIsOpen) "" else editPassword.trim(),
-                            securityMode = if (editIsOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
-                            isGuestOrOpen = editIsOpen,
-                            isEnabled = editEnabled
-                        )
-                        viewModel.updateWifiNetwork(updated)
-                        editingNetwork = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
-                ) {
-                    Text("تطبيق التغييرات", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingNetwork = null }) {
                     Text("إلغاء")
                 }
             }
@@ -289,67 +101,36 @@ fun WifiSettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Top Header
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
-                        text = "شبكات الواي فاي (${wifiNetworks.size})",
+                        text = "إعدادات الواي فاي",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "الشبكات المعرفة والمبثوثة من الراوتر",
+                        text = "${wifiNetworks.size} شبكات معرفة على الراوتر",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AccentCyan
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = { viewModel.loadAllData() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "تحديث", tint = AccentCyan)
-                    }
-
-                    Button(
-                        onClick = { showAddDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("إضافة شبكة", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        if (statusMsg != null) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
+                Button(
+                    onClick = { showAddDialog = true },
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = statusMsg ?: "",
-                            color = AccentCyan,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { viewModel.clearStatusMessage() }) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
-                        }
-                    }
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("إضافة شبكة", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -357,18 +138,10 @@ fun WifiSettingsScreen(
         items(wifiNetworks) { network ->
             WifiNetworkCard(
                 network = network,
-                onToggleEnabled = { enabled ->
-                    viewModel.updateWifiNetwork(network.copy(isEnabled = enabled))
-                },
-                onEdit = {
-                    editingNetwork = network
-                },
-                onDelete = {
-                    networkToDelete = network
-                },
-                onShowQr = {
-                    qrNetwork = network
-                },
+                onToggleEnabled = { enabled -> viewModel.updateWifiNetwork(network.copy(isEnabled = enabled)) },
+                onEdit = { editingNetwork = network },
+                onDelete = { networkToDelete = network },
+                onShowQr = { qrNetwork = network },
                 onCopyPassword = {
                     if (network.password.isNotEmpty()) {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -400,8 +173,10 @@ fun WifiNetworkCard(
         !network.securityMode.contains("SAE", ignoreCase = true)
 
     Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -418,14 +193,14 @@ fun WifiNetworkCard(
                     val is5G = network.band.contains("5")
                     Surface(
                         shape = CircleShape,
-                        color = if (is5G) AccentCyan.copy(alpha = 0.2f) else NokiaBlueLight.copy(alpha = 0.2f),
+                        color = if (is5G) WarningOrange.copy(alpha = 0.12f) else MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(44.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (is5G) Icons.Default.Bolt else Icons.Default.Wifi,
                                 contentDescription = null,
-                                tint = if (is5G) AccentCyan else NokiaBlueLight
+                                tint = if (is5G) WarningOrange else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -438,26 +213,26 @@ fun WifiNetworkCard(
                             Text(
                                 text = network.ssid,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp
                             )
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (isPrimary) NokiaBlueLight.copy(alpha = 0.2f) else AccentCyan.copy(alpha = 0.2f)
+                                shape = CircleShape,
+                                color = if (isPrimary) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
                                     text = if (isPrimary) "أساسية" else "إضافية",
                                     fontSize = 10.sp,
-                                    color = if (isPrimary) NokiaBlueLight else AccentCyan,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    fontWeight = FontWeight.SemiBold
+                                    color = if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                         Text(
                             text = "${network.band} • ${network.securityMode}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isTrulyOpen) SuccessGreen else AccentCyan
+                            color = if (isTrulyOpen) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -472,24 +247,25 @@ fun WifiNetworkCard(
                 )
             }
 
-            HorizontalDivider(color = DarkSurfaceCard)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
             // Password & Properties Row
             if (isTrulyOpen) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = NokiaBlueDark.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SuccessGreen.copy(alpha = 0.10f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.Default.LockOpen, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
                         Text(
                             text = "شبكة مفتوحة بدون كلمة مرور (الدخول محمي بفلتر الـ MAC)",
-                            color = Color.LightGray,
+                            color = SuccessGreen,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )
                     }
@@ -498,7 +274,7 @@ fun WifiNetworkCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(DarkSurfaceCard, RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -507,12 +283,12 @@ fun WifiNetworkCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Key, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         Text(
                             text = if (passwordVisible) network.password else "••••••••••••",
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
                         )
                     }
@@ -522,7 +298,7 @@ fun WifiNetworkCard(
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = "عرض الباسورد",
-                                tint = AccentCyan,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -531,7 +307,7 @@ fun WifiNetworkCard(
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "نسخ",
-                                tint = AccentCyan,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -547,11 +323,9 @@ fun WifiNetworkCard(
             ) {
                 OutlinedButton(
                     onClick = onDelete,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = DangerRed
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                    border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.4f)),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = "حذف الشبكة", modifier = Modifier.size(16.dp), tint = DangerRed)
@@ -565,7 +339,7 @@ fun WifiNetworkCard(
                 ) {
                     OutlinedButton(
                         onClick = onShowQr,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -575,13 +349,13 @@ fun WifiNetworkCard(
 
                     Button(
                         onClick = onEdit,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceCard),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentCyan)
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("تعديل", fontSize = 12.sp, color = AccentCyan)
+                        Text("تعديل", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,22 +54,23 @@ fun QuickSettingsScreen(
         AlertDialog(
             onDismissRequest = { showRebootConfirm = false },
             icon = { Icon(Icons.Default.RestartAlt, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(36.dp)) },
-            title = { Text("إعادة تشغيل الراوتر", fontWeight = FontWeight.Bold, color = Color.White) },
-            text = { Text("هل أنت متأكد من رغبتك في إعادة تشغيل راوتر نوكيا؟ سيستغرق الأمر دقيقة واحدة تقريباً.", color = Color.LightGray) },
+            title = { Text("إعادة تشغيل الراوتر", fontWeight = FontWeight.Bold) },
+            text = { Text("هل أنت متأكد من رغبتك في إعادة تشغيل راوتر نوكيا؟ سيستغرق الأمر دقيقة واحدة تقريباً.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.rebootRouter()
                         showRebootConfirm = false
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = WarningOrange)
                 ) {
-                    Text("إعادة التشغيل الآن", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("إعادة التشغيل الآن", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRebootConfirm = false }) {
-                    Text("إلغاء", color = Color.LightGray)
+                    Text("إلغاء")
                 }
             }
         )
@@ -82,12 +83,12 @@ fun QuickSettingsScreen(
         AlertDialog(
             onDismissRequest = { networkToDelete = null },
             icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
-            title = { Text(if (isPrimary) "تعطيل وحذف الشبكة الرئيسية" else "تأكيد حذف شبكة الواي فاي", fontWeight = FontWeight.Bold, color = Color.White) },
+            title = { Text(if (isPrimary) "تعطيل وحذف الشبكة الرئيسية" else "تأكيد حذف شبكة الواي فاي", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     if (isPrimary) "الشبكة '${net.ssid}' هي الأساسية لتردد ${net.band}. حذفها سيعطل بث الواي فاي على هذا التردد."
                     else "هل أنت متأكد من رغبتك في حذف شبكة '${net.ssid}' نهائياً وإيقاف بثها من الراوتر؟",
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -96,13 +97,14 @@ fun QuickSettingsScreen(
                         viewModel.deleteWifiNetwork(net)
                         networkToDelete = null
                     },
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("تأكيد الحذف", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("تأكيد الحذف", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { networkToDelete = null }) { Text("إلغاء", color = Color.LightGray) }
+                TextButton(onClick = { networkToDelete = null }) { Text("إلغاء") }
             }
         )
     }
@@ -124,6 +126,7 @@ fun QuickSettingsScreen(
                         value = editSsid,
                         onValueChange = { editSsid = it },
                         label = { Text("اسم الشبكة (SSID)") },
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -145,6 +148,7 @@ fun QuickSettingsScreen(
                             value = editPassword,
                             onValueChange = { editPassword = it },
                             label = { Text("كلمة المرور") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -154,8 +158,12 @@ fun QuickSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("تفعيل بث الشبكة", color = Color.White)
-                        Switch(checked = editEnabled, onCheckedChange = { editEnabled = it })
+                        Text("تفعيل بث الشبكة")
+                        Switch(
+                            checked = editEnabled,
+                            onCheckedChange = { editEnabled = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
                 }
             },
@@ -172,9 +180,10 @@ fun QuickSettingsScreen(
                         viewModel.updateWifiNetwork(updated)
                         editingNetwork = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("حفظ التغييرات", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("حفظ التغييرات", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -199,18 +208,21 @@ fun QuickSettingsScreen(
                         value = newSsid,
                         onValueChange = { newSsid = it },
                         label = { Text("اسم الشبكة (SSID)") },
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = newBand == "2.4 GHz",
                             onClick = { newBand = "2.4 GHz" },
-                            label = { Text("2.4 GHz") }
+                            label = { Text("2.4 GHz") },
+                            shape = CircleShape
                         )
                         FilterChip(
                             selected = newBand == "5 GHz",
                             onClick = { newBand = "5 GHz" },
-                            label = { Text("5 GHz") }
+                            label = { Text("5 GHz") },
+                            shape = CircleShape
                         )
                     }
                     Row(
@@ -219,13 +231,18 @@ fun QuickSettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("شبكة مفتوحة (بدون باسورد)", fontSize = 13.sp)
-                        Switch(checked = isOpen, onCheckedChange = { isOpen = it })
+                        Switch(
+                            checked = isOpen,
+                            onCheckedChange = { isOpen = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
                     }
                     if (!isOpen) {
                         OutlinedTextField(
                             value = newPassword,
                             onValueChange = { newPassword = it },
                             label = { Text("كلمة المرور (8 خانات أو أكثر)") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -239,9 +256,10 @@ fun QuickSettingsScreen(
                             showAddDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("إضافة وحفظ", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("إضافة وحفظ", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -259,33 +277,43 @@ fun QuickSettingsScreen(
         // Header
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(24.dp))
-                            Text("الإعدادات السريعة", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Text("الإعدادات السريعة", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Text("إجراءات سريعة ومبسطة للمهام اليومية", fontSize = 12.sp, color = Color.Gray)
+                        Text("إجراءات سريعة ومبسطة للمهام اليومية", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     FilledTonalButton(
                         onClick = onNavigateToPro,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = NokiaBlueLight.copy(alpha = 0.3f))
+                        shape = CircleShape,
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("الوضع المتقدم Pro", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("الوضع المتقدم Pro", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -296,55 +324,79 @@ fun QuickSettingsScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // LED Quick Card
                 Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = if (ledEnabled) WarningOrange else Color.Gray,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = if (ledEnabled) WarningOrange.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Lightbulb,
+                                        contentDescription = null,
+                                        tint = if (ledEnabled) WarningOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                             Switch(
                                 checked = ledEnabled,
                                 onCheckedChange = { viewModel.toggleLed(it) },
-                                colors = SwitchDefaults.colors(checkedTrackColor = WarningOrange)
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = WarningOrange
+                                )
                             )
                         }
-                        Text("أضواء الراوتر", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                        Text(if (ledEnabled) "مضاءة (تعمل)" else "مطفأة (الوضع الليلي)", color = Color.Gray, fontSize = 11.sp)
+                        Text("أضواء الراوتر", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                        Text(if (ledEnabled) "مضاءة (تعمل)" else "مطفأة (الوضع الليلي)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                 }
 
                 // Quick Reboot Card
                 Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.RestartAlt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(24.dp))
-                            IconButton(
-                                onClick = { showRebootConfirm = true },
-                                modifier = Modifier.size(32.dp)
+                            Surface(
+                                shape = CircleShape,
+                                color = DangerRed.copy(alpha = 0.12f),
+                                modifier = Modifier.size(38.dp)
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "إعادة تشغيل", tint = AccentCyan)
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.RestartAlt, contentDescription = null, tint = DangerRed, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            FilledTonalIconButton(
+                                onClick = { showRebootConfirm = true },
+                                shape = CircleShape,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "إعادة تشغيل", tint = DangerRed, modifier = Modifier.size(18.dp))
                             }
                         }
-                        Text("إعادة التشغيل", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                        Text("تنشيط الراوتر والاتصال", color = Color.Gray, fontSize = 11.sp)
+                        Text("إعادة التشغيل", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                        Text("تنشيط الراوتر والاتصال", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                 }
             }
@@ -357,16 +409,16 @@ fun QuickSettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("شبكات الواي فاي المعرفة (${wifiNetworks.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("شبكات الواي فاي المعرفة (${wifiNetworks.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground)
                 Button(
                     onClick = { showAddDialog = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("إضافة شبكة", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("إضافة شبكة", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -392,27 +444,28 @@ fun QuickSettingsScreen(
         // Banner to Pro Mode
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = NokiaBlueDark.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("تبحث عن إعدادات الترددات والقنوات المتقدمة؟", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                        Text("تبحث عن إعدادات الترددات والقنوات المتقدمة؟", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("تحكم في قنوات البث، قوة الإشارة، جدار الحماية، تشخيصات الـ Ping وخادم DHCP في الصفحة الاحترافية.", color = Color.LightGray, fontSize = 12.sp)
+                        Text("تحكم في قنوات البث، قوة الإشارة، جدار الحماية، تشخيصات الـ Ping وخادم DHCP في الصفحة الاحترافية.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
                         onClick = onNavigateToPro,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("فتح Pro", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text("فتح Pro", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
