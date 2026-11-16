@@ -10,7 +10,13 @@ class RouterLiveTest {
     @Test
     fun testUnblockAllTestEntries(): Unit = runBlocking {
         val service = NokiaRouterService()
-        val loginResult = service.login("superadmin", "NM#2022!")
+        val user = System.getenv("ROUTER_USER") ?: "admin"
+        val pass = System.getenv("ROUTER_PASS") ?: ""
+        if (pass.isEmpty()) {
+            println("Skipping live test: ROUTER_PASS not configured.")
+            return@runBlocking
+        }
+        val loginResult = service.login(user, pass)
         assertTrue("Router login should succeed", loginResult.isSuccess)
 
         // Clean up any test MACs
