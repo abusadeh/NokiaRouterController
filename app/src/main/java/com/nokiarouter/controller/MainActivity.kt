@@ -22,7 +22,7 @@ import com.nokiarouter.controller.ui.theme.NokiaRouterControllerTheme
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     DASHBOARD("الرئيسية", Icons.Default.Dashboard),
     DEVICES("الأجهزة", Icons.Default.Devices),
-    OPEN_NETWORK("الشبكة المقيدة", Icons.Default.Security),
+    OPEN_NETWORK("الشبكات المفتوحة", Icons.Default.VerifiedUser),
     SETTINGS("الإعدادات", Icons.Default.Settings)
 }
 

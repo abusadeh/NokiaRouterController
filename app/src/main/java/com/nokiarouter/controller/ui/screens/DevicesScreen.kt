@@ -249,6 +249,9 @@ fun DevicesScreen(
                     onAddToWhitelist = {
                         viewModel.addMacToWhitelist(device.mac, device.hostName)
                     },
+                    onRemoveFromWhitelist = {
+                        viewModel.removeMacFromWhitelist(device.mac)
+                    },
                     onRename = {
                         renamingDevice = device
                     },
@@ -269,6 +272,7 @@ fun DeviceItemCard(
     device: ConnectedDeviceItem,
     isWhitelisted: Boolean,
     onAddToWhitelist: () -> Unit,
+    onRemoveFromWhitelist: () -> Unit,
     onRename: () -> Unit,
     onBlock: () -> Unit,
     onUnblock: () -> Unit
@@ -424,18 +428,30 @@ fun DeviceItemCard(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.Shield, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
-                                    Text("مسموح", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("مصرح", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
+                            }
+
+                            OutlinedButton(
+                                onClick = onRemoveFromWhitelist,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = WarningOrange),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp), tint = WarningOrange)
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("إلغاء السماح", fontSize = 11.sp, color = WarningOrange)
                             }
                         } else {
                             OutlinedButton(
                                 onClick = onAddToWhitelist,
                                 shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SuccessGreen),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.AddModerator, contentDescription = null, modifier = Modifier.size(14.dp), tint = SuccessGreen)
                                 Spacer(modifier = Modifier.width(2.dp))
-                                Text("سماح بالشبكة", fontSize = 11.sp)
+                                Text("سماح بالشبكة", fontSize = 11.sp, color = SuccessGreen, fontWeight = FontWeight.Bold)
                             }
                         }
 

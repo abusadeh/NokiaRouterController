@@ -1,5 +1,9 @@
 package com.nokiarouter.controller.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,11 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nokiarouter.controller.data.ConnectedDeviceItem
 import com.nokiarouter.controller.data.MacFilterEntry
+import com.nokiarouter.controller.data.WifiNetworkItem
 import com.nokiarouter.controller.ui.MainViewModel
 import com.nokiarouter.controller.ui.theme.*
 
@@ -26,49 +33,55 @@ fun OpenNetworkScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val openNetworkEnabled by viewModel.openNetworkEnabled.collectAsState()
-    val openNetworkSsid by viewModel.openNetworkSsid.collectAsState()
+    val wifiNetworks by viewModel.wifiNetworks.collectAsState()
+    val connectedDevices by viewModel.connectedDevices.collectAsState()
     val macList by viewModel.macFilterEntries.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val statusMsg by viewModel.statusMessage.collectAsState()
+    val context = LocalContext.current
+
+    // Filter open networks (networks without password or marked open/guest)
+    val openNetworks = wifiNetworks.filter {
+        it.isGuestOrOpen || it.securityMode.contains("None", ignoreCase = true) || it.password.isEmpty()
+    }
+
+    // Devices currently connected or detected that are NOT in the whitelist
+    val unregisteredDevices = connectedDevices.filter { dev ->
+        macList.none { it.mac.equals(dev.mac, ignoreCase = true) }
+    }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showCreateOpenWifiDialog by remember { mutableStateOf(false) }
     var newMacInput by remember { mutableStateOf("") }
     var newNameInput by remember { mutableStateOf("") }
-
     var macToDelete by remember { mutableStateOf<MacFilterEntry?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
+    // Manual MAC Add Dialog
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.AddModerator, contentDescription = null, tint = AccentCyan)
-                    Text("إضافة جهاز بالـ MAC")
-                }
-            },
+            icon = { Icon(Icons.Default.AddModerator, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(36.dp)) },
+            title = { Text("إضافة جهاز مصرح له بالـ MAC", fontWeight = FontWeight.Bold, color = Color.White) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "أدخل عنوان الـ MAC للجهاز الذي تريد السماح له بالدخول لهذه الشبكة:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        text = "أدخل عنوان الـ MAC للجهاز الذي تريد السماح له بالاتصال بالشبكات المفتوحة:",
+                        fontSize = 13.sp,
+                        color = Color.LightGray
                     )
 
                     OutlinedTextField(
                         value = newNameInput,
                         onValueChange = { newNameInput = it },
-                        label = { Text("اسم الجهاز (اختياري)") },
-                        placeholder = { Text("مثال: هاتف سامسونج") },
+                        label = { Text("اسم الجهاز (مثال: هاتف أحمد)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
                         value = newMacInput,
-                        onValueChange = {
-                            newMacInput = it.uppercase()
-                        },
+                        onValueChange = { newMacInput = it.uppercase() },
                         label = { Text("عنوان MAC Address") },
                         placeholder = { Text("XX:XX:XX:XX:XX:XX") },
                         singleLine = true,
@@ -76,7 +89,7 @@ fun OpenNetworkScreen(
                     )
 
                     Text(
-                        text = "مثال صحيح: 1C:69:7A:B4:92:11 أو 1C-69-7A-B4-92-11",
+                        text = "مثال: 1C:69:7A:B4:92:11 أو 1C-69-7A-B4-92-11",
                         fontSize = 11.sp,
                         color = Color.Gray
                     )
@@ -86,7 +99,7 @@ fun OpenNetworkScreen(
                 Button(
                     onClick = {
                         if (newMacInput.isNotBlank()) {
-                            viewModel.addMacToWhitelist(newMacInput, newNameInput)
+                            viewModel.addMacToWhitelist(newMacInput.trim(), newNameInput.trim())
                             newMacInput = ""
                             newNameInput = ""
                             showAddDialog = false
@@ -94,39 +107,93 @@ fun OpenNetworkScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
                 ) {
-                    Text("إضافة وسماح", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("إضافة وسماح فوري", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("إلغاء")
-                }
+                TextButton(onClick = { showAddDialog = false }) { Text("إلغاء", color = Color.LightGray) }
             }
         )
     }
 
-    if (macToDelete != null) {
+    // Create New Open Network Dialog
+    if (showCreateOpenWifiDialog) {
+        var openSsidName by remember { mutableStateOf("") }
+        var openBand by remember { mutableStateOf("2.4 GHz") }
+
         AlertDialog(
-            onDismissRequest = { macToDelete = null },
-            title = { Text("تأكيد إزالة الجهاز") },
+            onDismissRequest = { showCreateOpenWifiDialog = false },
+            icon = { Icon(Icons.Default.WifiTethering, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(36.dp)) },
+            title = { Text("إنشاء شبكة مفتوحة جديدة", fontWeight = FontWeight.Bold, color = Color.White) },
             text = {
-                Text("هل تريد بالتأكيد إزالة الجهاز (${macToDelete?.deviceName} - ${macToDelete?.mac}) من قائمة السماح؟ لن يتمكن من الاتصال بالشبكة المفتوحة بعد ذلك.")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("أدخل اسم الشبكة المفتوحة (ستكون بدون باسورد ومحمية بالـ MAC فقط):", fontSize = 13.sp, color = Color.LightGray)
+                    OutlinedTextField(
+                        value = openSsidName,
+                        onValueChange = { openSsidName = it },
+                        label = { Text("اسم الشبكة (SSID)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = openBand == "2.4 GHz",
+                            onClick = { openBand = "2.4 GHz" },
+                            label = { Text("2.4 GHz") }
+                        )
+                        FilterChip(
+                            selected = openBand == "5 GHz",
+                            onClick = { openBand = "5 GHz" },
+                            label = { Text("5 GHz") }
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        macToDelete?.let { viewModel.removeMacFromWhitelist(it.mac) }
+                        if (openSsidName.isNotBlank()) {
+                            viewModel.addNewWifiNetwork(openSsidName.trim(), openBand, "", isOpen = true)
+                            showCreateOpenWifiDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                ) {
+                    Text("إنشاء وبث الشبكة", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateOpenWifiDialog = false }) { Text("إلغاء", color = Color.LightGray) }
+            }
+        )
+    }
+
+    // Delete MAC Dialog
+    if (macToDelete != null) {
+        val entry = macToDelete!!
+        AlertDialog(
+            onDismissRequest = { macToDelete = null },
+            icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
+            title = { Text("تأكيد إلغاء صلاحية الجهاز", fontWeight = FontWeight.Bold, color = Color.White) },
+            text = {
+                Text(
+                    "هل أنت متأكد من رغبتك في إزالة الجهاز (${entry.deviceName.ifBlank { "جهاز مصرح" }} - ${entry.mac}) من القائمة المسموحة؟ لن يتمكن من الاتصال بالشبكات المفتوحة بعد ذلك.",
+                    color = Color.LightGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeMacFromWhitelist(entry.mac)
                         macToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("إزالة وحظر")
+                    Text("إلغاء الصلاحية والحرمان", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { macToDelete = null }) {
-                    Text("إلغاء")
-                }
+                TextButton(onClick = { macToDelete = null }) { Text("إلغاء", color = Color.LightGray) }
             }
         )
     }
@@ -137,270 +204,306 @@ fun OpenNetworkScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Title & Header
-        item {
-            Column {
-                Text(
-                    text = "الشبكة المقيدة بالـ MAC",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "شبكة واي فاي مفتوحة بدون باسورد ومحمية بفلتر الـ MAC",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AccentCyan
-                )
-            }
-        }
-
-        if (statusMsg != null) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = statusMsg ?: "",
-                            color = AccentCyan,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { viewModel.clearStatusMessage() }) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Network Configuration Card
+        // Main Screen Header Card
         item {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = DarkSurface),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "حالة الشبكة المفتوحة",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                text = if (openNetworkEnabled) "مفعلة وتعمل الآن" else "معطلة",
-                                color = if (openNetworkEnabled) SuccessGreen else Color.Gray,
-                                fontSize = 13.sp
-                            )
-                        }
-
-                        Switch(
-                            checked = openNetworkEnabled,
-                            onCheckedChange = { viewModel.toggleOpenNetwork(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = SuccessGreen
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(color = DarkSurfaceCard)
-
-                    OutlinedTextField(
-                        value = openNetworkSsid,
-                        onValueChange = { viewModel.updateOpenNetworkSsid(it) },
-                        label = { Text("اسم الشبكة (SSID)") },
-                        leadingIcon = { Icon(Icons.Default.Wifi, contentDescription = null, tint = AccentCyan) },
-                        trailingIcon = {
-                            IconButton(onClick = { viewModel.toggleOpenNetwork(openNetworkEnabled) }) {
-                                Icon(Icons.Default.Check, contentDescription = "حفظ", tint = AccentCyan)
-                            }
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Security Info Callout
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = NokiaBlueDark.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(Icons.Default.Shield, contentDescription = null, tint = AccentCyan)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(28.dp))
                             Column {
-                                Text(
-                                    text = "نوع الحماية: بدون كلمة مرور (Open Security)",
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = "الراوتر يرفض أي جهاز لا يطابق أحد عناوين الـ MAC المسجلة في القائمة البيضاء.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.LightGray,
-                                    fontSize = 12.sp
-                                )
+                                Text("الشبكات المفتوحة المقيدة بالـ MAC", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color.White)
+                                Text("الدخول مقتصر حصرياً على الأجهزة المعرفة", fontSize = 12.sp, color = Color.Gray)
                             }
                         }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SuccessGreen.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = "الحماية مفعلة",
+                                color = SuccessGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
+
+                    Text(
+                        text = "الشبكات التي بدون كلمة مرور لا يمكن لأي شخص الدخول إليها إلا بعد إضافة عنوان الـ MAC الخاص بجهازه في هذه القائمة.",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
                 }
             }
         }
 
-        // Section: Allowed MAC Addresses
+        // Section 1: Active Open Networks List
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "الأجهزة المسموح لها (${macList.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "فقط هذه العناوين تستطيع استخدام الإنترنت عبر هذه الشبكة",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-
-                Button(
-                    onClick = { showAddDialog = true },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                Text("الشبكات المفتوحة المفعلة (${openNetworks.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                FilledTonalButton(
+                    onClick = { showCreateOpenWifiDialog = true },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = SuccessGreen.copy(alpha = 0.2f)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("إضافة MAC", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("إضافة شبكة مفتوحة", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        if (macList.isEmpty()) {
+        if (openNetworks.isEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("لا توجد شبكة مفتوحة حالياً", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("اضغط على (إضافة شبكة مفتوحة) لإنشاء شبكة جديدة بدون باسورد محمية بالـ MAC.", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            }
+        } else {
+            items(openNetworks) { openNet ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Default.Wifi, contentDescription = null, tint = SuccessGreen)
+                            Column {
+                                Text(openNet.ssid, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                Text("${openNet.band} • بدون باسورد (Open)", color = SuccessGreen, fontSize = 11.sp)
+                            }
+                        }
+
+                        Switch(
+                            checked = openNet.isEnabled,
+                            onCheckedChange = { isChecked ->
+                                viewModel.updateWifiNetwork(openNet.copy(isEnabled = isChecked))
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section 2: Quick 1-Tap Allow for Unregistered Detected Devices
+        if (unregisteredDevices.isNotEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = NokiaBlueDark.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Radar, contentDescription = null, tint = AccentCyan)
+                            Text("أجهزة مكتشفة بانتظار السماح (${unregisteredDevices.size})", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                        }
+                        Text("أجهزة متصلة أو متواجدة حولك، اضغط على (سماح فوري) لإضافتها مباشرة بالـ MAC:", color = Color.LightGray, fontSize = 12.sp)
+
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            unregisteredDevices.take(4).forEach { dev ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(DarkSurfaceCard, RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(dev.hostName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                                        Text(dev.mac, fontFamily = FontFamily.Monospace, color = AccentCyan, fontSize = 11.sp)
+                                    }
+
+                                    Button(
+                                        onClick = { viewModel.addMacToWhitelist(dev.mac, dev.hostName) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.AddModerator, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("سماح فوري", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 3: Registered / Whitelisted Devices Header & Search
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("الأجهزة المعرفة والمصرح لها (${macList.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                        Text("هذه الأجهزة فقط يسمح لها بالدخول للشبكة المفتوحة", fontSize = 12.sp, color = Color.Gray)
+                    }
+
+                    Button(
+                        onClick = { showAddDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("إضافة MAC يدوي", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (macList.size > 3) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("بحث باسم الجهاز أو عنوان الـ MAC...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        // Whitelist Items
+        val filteredList = if (searchQuery.isBlank()) macList else macList.filter {
+            it.deviceName.contains(searchQuery, true) || it.mac.contains(searchQuery, true)
+        }
+
+        if (filteredList.isEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
+                            .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.DevicesOther, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
-                        Text("لا توجد أجهزة مضافة حالياً", color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "اضغط على زر (إضافة MAC) لإضافة جهاز مسموح له بالاتصال.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
+                        Icon(Icons.Default.DevicesOther, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
+                        Text("لا توجد أجهزة مسجلة في القائمة حالياً", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("اضغط على (سماح فوري) للأجهزة المكتشفة أو زر (إضافة MAC يدوي) لتسجيل جهاز جديد.", color = Color.Gray, fontSize = 12.sp)
                     }
                 }
             }
         } else {
-            items(macList) { item ->
-                MacAddressItemCard(
-                    entry = item,
-                    onDelete = { macToDelete = item }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun MacAddressItemCard(
-    entry: MacFilterEntry,
-    onDelete: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = SuccessGreen.copy(alpha = 0.15f),
-                    modifier = Modifier.size(42.dp)
+            items(filteredList) { entry ->
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SuccessGreen)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SuccessGreen.copy(alpha = 0.15f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SuccessGreen)
+                                }
+                            }
+
+                            Column {
+                                Text(
+                                    text = entry.deviceName.ifBlank { "جهاز مصرح له" },
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = entry.mac,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AccentCyan,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = SuccessGreen.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = "مصرح",
+                                    color = SuccessGreen,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = { macToDelete = entry },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f)),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "إزالة", modifier = Modifier.size(14.dp), tint = DangerRed)
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("إزالة", fontSize = 11.sp, color = DangerRed, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
-                }
-
-                Column {
-                    Text(
-                        text = entry.deviceName.ifBlank { "جهاز مسموح" },
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = entry.mac,
-                        fontFamily = FontFamily.Monospace,
-                        color = AccentCyan,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = SuccessGreen.copy(alpha = 0.2f),
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
-                    Text(
-                        text = "مسموح",
-                        color = SuccessGreen,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "حذف الـ MAC",
-                        tint = DangerRed
-                    )
                 }
             }
         }

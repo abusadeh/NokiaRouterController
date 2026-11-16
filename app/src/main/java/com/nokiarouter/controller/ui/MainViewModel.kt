@@ -454,12 +454,17 @@ class MainViewModel(
             _macFilterEntries.value = currentList
             prefs.saveMacEntries(currentList)
 
+            // Update connected devices state immediately
+            _connectedDevices.value = _connectedDevices.value.map { dev ->
+                if (dev.mac.equals(cleanMac, ignoreCase = true)) dev.copy(isWhitelisted = true, isBlocked = false) else dev
+            }
+
             val result = service.addMacToWhitelist(cleanMac, name)
             _isLoading.value = false
             if (result.isSuccess) {
-                _statusMessage.value = "تمت إضافة الجهاز ($cleanMac) وحفظه بنجاح!"
+                _statusMessage.value = "تم السماح للجهاز ($name - $cleanMac) بالدخول للشبكة المفتوحة بنجاح!"
             } else {
-                _statusMessage.value = "تم حفظ الـ MAC محلياً وإرسال الأمر للراوتر!"
+                _statusMessage.value = "تم حفظ الجهاز وإرسال أمر السماح للراوتر!"
             }
         }
     }
@@ -472,9 +477,13 @@ class MainViewModel(
             _macFilterEntries.value = currentList
             prefs.saveMacEntries(currentList)
 
+            _connectedDevices.value = _connectedDevices.value.map { dev ->
+                if (dev.mac.equals(mac, ignoreCase = true)) dev.copy(isWhitelisted = false) else dev
+            }
+
             val result = service.removeMacFromWhitelist(mac)
             _isLoading.value = false
-            _statusMessage.value = "تمت إزالة الـ MAC ($mac) من القائمة المسموحة وحفظ التغيير."
+            _statusMessage.value = "تم إلغاء صلاحية الجهاز ($mac) وحرمانه من الشبكة المفتوحة."
         }
     }
 

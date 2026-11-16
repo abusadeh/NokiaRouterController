@@ -562,24 +562,52 @@ class NokiaRouterService(
         try {
             val cleanMac = macAddress.trim().uppercase()
             val encodedName = URLEncoder.encode(deviceName.ifBlank { "Permitted Device" }, "UTF-8")
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
 
+            // 1. Ensure MAC filter is active in allow mode
+            try {
+                val modeParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
+                val modePayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, modeParams)
+                val modeReq = Request.Builder()
+                    .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
+                    .post(modePayload.toRequestBody(mediaType))
+                    .build()
+                client.newCall(modeReq).execute()
+            } catch (_: Exception) {}
+
+            // 2. Add to global WLAN whitelist
             val params = "mac_addr=$cleanMac&device_name=$encodedName&filter_mode=allow&mac_address=$cleanMac"
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
                 csrfToken = csrfToken,
                 params = params
             )
-
-            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
             val reqBody = postPayload.toRequestBody(mediaType)
-
             val request = Request.Builder()
                 .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
                 .post(reqBody)
                 .build()
+            client.newCall(request).execute()
 
-            val response = client.newCall(request).execute()
-            Result.success(response.isSuccessful)
+            // 3. Ensure Allow rule on open & secondary SSIDs (2, 6, 1, 5)
+            for (ssidId in listOf(2, 6, 1, 5)) {
+                try {
+                    val p = "wlan_mac_exclude_mod=Allow&wl_id=$ssidId&ssid_enable=on&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
+                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, p)
+                    val req = Request.Builder()
+                        .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
+                        .post(payload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(req).execute()
+                } catch (_: Exception) {}
+            }
+
+            // 4. Remove any firewall drops if previously blocked
+            try {
+                unblockDeviceOnRouter(cleanMac, null)
+            } catch (_: Exception) {}
+
+            Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -588,23 +616,36 @@ class NokiaRouterService(
     suspend fun removeMacFromWhitelist(macAddress: String): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanMac = macAddress.trim().uppercase()
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+
+            // 1. Remove from global WLAN whitelist
             val params = "act=del_wlan&mac=$cleanMac"
             val postPayload = NokiaCrypto.encryptPostWithCsrf(
                 pubKeyPem = pubKeyPem,
                 csrfToken = csrfToken,
                 params = params
             )
-
-            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
             val reqBody = postPayload.toRequestBody(mediaType)
-
             val request = Request.Builder()
                 .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
                 .post(reqBody)
                 .build()
+            client.newCall(request).execute()
 
-            val response = client.newCall(request).execute()
-            Result.success(response.isSuccessful)
+            // 2. Remove from SSIDs
+            for (ssidId in listOf(2, 6, 1, 5)) {
+                try {
+                    val p = "act=del_wlan&mac=$cleanMac&wl_id=$ssidId"
+                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, p)
+                    val req = Request.Builder()
+                        .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
+                        .post(payload.toRequestBody(mediaType))
+                        .build()
+                    client.newCall(req).execute()
+                } catch (_: Exception) {}
+            }
+
+            Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
