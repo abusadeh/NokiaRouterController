@@ -409,20 +409,13 @@ class NokiaRouterService(
                 .build()
             client.newCall(secReq).execute()
 
-            // 3. Set MAC filtering to Allowlist mode
-            val filterParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
-            val filterPayload = NokiaCrypto.encryptPostWithCsrf(
-                pubKeyPem = pubKeyPem,
-                csrfToken = csrfToken,
-                params = filterParams
-            )
-            val filterReq = Request.Builder()
-                .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
-                .post(filterPayload.toRequestBody(mediaType))
-                .build()
-            val filterRes = client.newCall(filterReq).execute()
+            // 3. Enforce Strict Whitelist (Allow) mode on Open SSIDs (2 and 6)
+            if (enable) {
+                setSsidMacFilterMode(ssidId = 2, mode = "Allow", enable = true)
+                setSsidMacFilterMode(ssidId = 6, mode = "Allow", enable = true)
+            }
 
-            Result.success(filterRes.isSuccessful)
+            Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -572,93 +565,109 @@ class NokiaRouterService(
         }
     }
 
-    suspend fun addMacToWhitelist(macAddress: String, deviceName: String = ""): Result<Boolean> = withContext(Dispatchers.IO) {
+    suspend fun addMacToSsidWhitelist(
+        ssidId: Int,
+        macAddress: String,
+        deviceName: String = ""
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanMac = macAddress.trim().uppercase()
-            val encodedName = URLEncoder.encode(deviceName.ifBlank { "Permitted Device" }, "UTF-8")
+            val encodedName = URLEncoder.encode(deviceName.ifBlank { "Allowed Device" }, "UTF-8")
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
 
-            // 1. Ensure MAC filter is active in allow mode
-            try {
-                val modeParams = "filter_mode=allow&mac_filter_enable=1&act=set_filter"
-                val modePayload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, modeParams)
-                val modeReq = Request.Builder()
-                    .url("$baseUrl/macfilter_web_app.cgi?filter_mode=allow")
-                    .post(modePayload.toRequestBody(mediaType))
-                    .build()
-                client.newCall(modeReq).execute()
-            } catch (_: Exception) {}
-
-            // 2. Add to global WLAN whitelist
-            val params = "mac_addr=$cleanMac&device_name=$encodedName&filter_mode=allow&mac_address=$cleanMac"
-            val postPayload = NokiaCrypto.encryptPostWithCsrf(
-                pubKeyPem = pubKeyPem,
-                csrfToken = csrfToken,
-                params = params
-            )
-            val reqBody = postPayload.toRequestBody(mediaType)
-            val request = Request.Builder()
+            // Exact parameters expected by Nokia GPON macfilter_web_app.cgi?add_wlan:
+            val params = "wlan_mac_exclude_mod=Allow&wl_id=$ssidId&ssid_enable=on&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
+            val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
+            val req = Request.Builder()
                 .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
-                .post(reqBody)
+                .post(payload.toRequestBody(mediaType))
                 .build()
-            client.newCall(request).execute()
-
-            // 3. Ensure Allow rule on open & secondary SSIDs (2, 6, 1, 5)
-            for (ssidId in listOf(2, 6, 1, 5)) {
-                try {
-                    val p = "wlan_mac_exclude_mod=Allow&wl_id=$ssidId&ssid_enable=on&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
-                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, p)
-                    val req = Request.Builder()
-                        .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
-                        .post(payload.toRequestBody(mediaType))
-                        .build()
-                    client.newCall(req).execute()
-                } catch (_: Exception) {}
-            }
-
-            // 4. Remove any firewall drops if previously blocked
-            try {
-                unblockDeviceOnRouter(cleanMac, null)
-            } catch (_: Exception) {}
-
-            Result.success(true)
+            val resp = client.newCall(req).execute()
+            Result.success(resp.isSuccessful)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun removeMacFromWhitelist(macAddress: String): Result<Boolean> = withContext(Dispatchers.IO) {
+    suspend fun removeMacFromSsid(
+        ssidId: Int,
+        macAddress: String
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val cleanMac = macAddress.trim().uppercase()
             val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
-
-            // 1. Remove from global WLAN whitelist
-            val params = "act=del_wlan&mac=$cleanMac"
-            val postPayload = NokiaCrypto.encryptPostWithCsrf(
-                pubKeyPem = pubKeyPem,
-                csrfToken = csrfToken,
-                params = params
-            )
-            val reqBody = postPayload.toRequestBody(mediaType)
-            val request = Request.Builder()
-                .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
-                .post(reqBody)
+            val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, "")
+            val req = Request.Builder()
+                .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&ssid=$ssidId&mac=$cleanMac")
+                .post(payload.toRequestBody(mediaType))
                 .build()
-            client.newCall(request).execute()
+            val resp = client.newCall(req).execute()
+            Result.success(resp.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-            // 2. Remove from SSIDs
-            for (ssidId in listOf(2, 6, 1, 5)) {
-                try {
-                    val p = "act=del_wlan&mac=$cleanMac&wl_id=$ssidId"
-                    val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, p)
-                    val req = Request.Builder()
-                        .url("$baseUrl/macfilter_web_app.cgi?act=del_wlan&mac=$cleanMac")
-                        .post(payload.toRequestBody(mediaType))
-                        .build()
-                    client.newCall(req).execute()
-                } catch (_: Exception) {}
+    suspend fun setSsidMacFilterMode(
+        ssidId: Int,
+        mode: String,
+        enable: Boolean,
+        macAddress: String = "",
+        deviceName: String = ""
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val cleanMac = macAddress.trim().uppercase()
+            val encodedName = URLEncoder.encode(deviceName, "UTF-8")
+            val mediaType = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
+            val enableStr = if (enable) "&ssid_enable=on" else ""
+            val params = "wlan_mac_exclude_mod=$mode&wl_id=$ssidId$enableStr&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
+            val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
+            val req = Request.Builder()
+                .url("$baseUrl/macfilter_web_app.cgi?add_wlan")
+                .post(payload.toRequestBody(mediaType))
+                .build()
+            val resp = client.newCall(req).execute()
+            Result.success(resp.isSuccessful)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addMacToWhitelist(
+        macAddress: String,
+        deviceName: String = "",
+        targetSsids: List<Int> = listOf(2, 6)
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val cleanMac = macAddress.trim().uppercase()
+            var anySuccess = false
+            for (ssidId in targetSsids) {
+                val res = addMacToSsidWhitelist(ssidId, cleanMac, deviceName)
+                if (res.isSuccess && res.getOrNull() == true) {
+                    anySuccess = true
+                }
             }
 
+            // Remove any firewall drops if previously blocked
+            try {
+                unblockDeviceOnRouter(cleanMac, null)
+            } catch (_: Exception) {}
+
+            Result.success(anySuccess)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeMacFromWhitelist(
+        macAddress: String,
+        targetSsids: List<Int> = listOf(2, 6)
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val cleanMac = macAddress.trim().uppercase()
+            for (ssidId in targetSsids) {
+                removeMacFromSsid(ssidId, cleanMac)
+            }
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
@@ -690,9 +699,10 @@ class NokiaRouterService(
                 } catch (_: Exception) {}
             }
 
-            // 2. Layer 2 Hardware MAC Filter: Add to Deny filter on primary and secondary SSIDs (2.4G & 5G)
-            val ssidIndices = listOf(1, 2, 5, 6)
-            for (ssidId in ssidIndices) {
+            // 2. Layer 2 Hardware MAC Filter: Add to Deny filter on primary home SSIDs (1 and 5)
+            // (DO NOT add Deny to SSID 2/6, because that would flip the Open Network from Whitelist to Blacklist!)
+            val protectedSsids = listOf(1, 5)
+            for (ssidId in protectedSsids) {
                 try {
                     val params = "wlan_mac_exclude_mod=Deny&wl_id=$ssidId&ssid_enable=on&wlan_servername=$encodedName&wlan_mac_address=$cleanMac"
                     val payload = NokiaCrypto.encryptPostWithCsrf(pubKeyPem, csrfToken, params)
@@ -704,7 +714,8 @@ class NokiaRouterService(
                 } catch (_: Exception) {}
             }
 
-            // 3. Remove from whitelist if present
+            // 3. Remove from Open Whitelist networks (SSID 2 and 6)
+            // Because Open Network is in Allow (Whitelist) mode, removing it automatically blocks/disconnects it!
             try {
                 removeMacFromWhitelist(cleanMac)
             } catch (_: Exception) {}
@@ -1209,9 +1220,69 @@ class NokiaRouterService(
         if (json.isEmpty()) return list
         try {
             val root = gson.fromJson(json, Map::class.java)
-            val filterList = (root["wlan_mac_filter_config"] ?: root["mac_filter_list"]) as? List<*>
-            if (filterList != null) {
-                for (item in filterList) {
+
+            // 1. Resolve host names from device_cfg and alias_cfg
+            val hostNames = mutableMapOf<String, String>()
+            val devCfg = root["device_cfg"] as? List<*>
+            devCfg?.forEach { dev ->
+                if (dev is Map<*, *>) {
+                    val mac = dev["MACAddress"]?.toString()?.uppercase() ?: ""
+                    val name = dev["HostName"]?.toString().orEmpty()
+                    if (mac.isNotEmpty() && name.isNotEmpty() && !name.startsWith("Unknown_", ignoreCase = true)) {
+                        hostNames[mac] = name
+                    }
+                }
+            }
+            val aliasCfg = root["alias_cfg"] as? List<*>
+            aliasCfg?.forEach { a ->
+                if (a is Map<*, *>) {
+                    val mac = a["MACAddress"]?.toString()?.uppercase() ?: ""
+                    val alias = a["HostAlias"]?.toString() ?: a["HostName"]?.toString() ?: ""
+                    if (mac.isNotEmpty() && alias.isNotEmpty() && !alias.startsWith("Unknown_", ignoreCase = true)) {
+                        hostNames[mac] = alias
+                    }
+                }
+            }
+
+            // 2. Parse per-SSID MAC filter rules (macListObj inside wlan_mac_filter_config)
+            val wlanList = root["wlan_mac_filter_config"] as? List<*>
+            if (wlanList != null) {
+                for (item in wlanList) {
+                    if (item is Map<*, *>) {
+                        val ssidNum = (item["SSID_num"] as? Number)?.toInt()
+                            ?: item["SSID_num"]?.toString()?.toDoubleOrNull()?.toInt() ?: 1
+                        val mode = item["X_ALU_COM_MACAddressControlMode"]?.toString() ?: "Allow"
+                        val macListObj = item["macListObj"] as? List<*>
+
+                        macListObj?.forEach { m ->
+                            if (m is Map<*, *>) {
+                                val mac = (m["MacAddress"] ?: m["MACAddress"] ?: m["mac"])?.toString()?.uppercase() ?: ""
+                                if (mac.isNotEmpty()) {
+                                    val name = hostNames[mac] ?: "جهاز مصرح به (SSID $ssidNum)"
+                                    val filterMode = if (mode.equals("Allow", ignoreCase = true)) "Allowed" else "Denied"
+                                    val ssidDisplay = if (ssidNum == 2 || ssidNum == 6) "الشبكة المفتوحة (SSID $ssidNum)" else "الشبكة الرئيسية (SSID $ssidNum)"
+                                    // Avoid duplicates in UI list
+                                    if (list.none { it.mac.equals(mac, ignoreCase = true) }) {
+                                        list.add(
+                                            MacFilterEntry(
+                                                mac = mac,
+                                                deviceName = name,
+                                                ssidName = ssidDisplay,
+                                                status = filterMode
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback for legacy format
+            if (list.isEmpty()) {
+                val filterList = root["mac_filter_list"] as? List<*>
+                filterList?.forEach { item ->
                     if (item is Map<*, *>) {
                         val mac = item["mac"]?.toString() ?: item["MACAddress"]?.toString() ?: ""
                         val name = item["name"]?.toString() ?: "Permitted Device"

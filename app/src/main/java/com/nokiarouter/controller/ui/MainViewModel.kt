@@ -200,9 +200,13 @@ class MainViewModel(
             // 3. Load MAC filter rules from router
             val filterRes = service.getMacFilterRules()
             filterRes.onSuccess { entries ->
-                if (entries.isNotEmpty()) {
-                    _macFilterEntries.value = entries
-                    prefs.saveMacEntries(entries)
+                _macFilterEntries.value = entries
+                prefs.saveMacEntries(entries)
+
+                // Sync whitelisted flag to connected devices
+                _connectedDevices.value = _connectedDevices.value.map { dev ->
+                    val isWhite = entries.any { it.mac.equals(dev.mac, ignoreCase = true) }
+                    dev.copy(isWhitelisted = isWhite)
                 }
             }
 
@@ -507,6 +511,7 @@ class MainViewModel(
             } else {
                 _statusMessage.value = "تم حفظ الجهاز وإرسال أمر السماح للراوتر!"
             }
+            loadAllData()
         }
     }
 
@@ -525,6 +530,23 @@ class MainViewModel(
             val result = service.removeMacFromWhitelist(mac)
             _isLoading.value = false
             _statusMessage.value = "تم إلغاء صلاحية الجهاز ($mac) وحرمانه من الشبكة المفتوحة."
+            loadAllData()
+        }
+    }
+
+    fun enforceOpenNetworkWhitelist() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _statusMessage.value = "جاري تفعيل وتثبيت وضع الحظر الصارم (Whitelist) بالراوتر..."
+            val res2 = service.setSsidMacFilterMode(2, mode = "Allow", enable = true)
+            val res6 = service.setSsidMacFilterMode(6, mode = "Allow", enable = true)
+            _isLoading.value = false
+            if (res2.isSuccess || res6.isSuccess) {
+                _statusMessage.value = "تم تفعيل وضع الحظر الصارم (Whitelist) بنجاح! يتم رفض أي جهاز غير مصرح به تلقائياً."
+            } else {
+                _statusMessage.value = "تم إرسال أمر الفلترة الصارمة للراوتر."
+            }
+            loadAllData()
         }
     }
 

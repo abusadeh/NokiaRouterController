@@ -267,7 +267,7 @@ fun OpenNetworkScreen(
                             color = SuccessGreen.copy(alpha = 0.2f)
                         ) {
                             Text(
-                                text = "الحماية مفعلة",
+                                text = "حظر صارم (Whitelist)",
                                 color = SuccessGreen,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -277,10 +277,22 @@ fun OpenNetworkScreen(
                     }
 
                     Text(
-                        text = "الشبكات التي بدون كلمة مرور لا يمكن لأي شخص الدخول إليها إلا بعد إضافة عنوان الـ MAC الخاص بجهازه في هذه القائمة.",
+                        text = "الشبكات المفتوحة محمية بنظام القائمة البيضاء (Allowlist): يرفض الراوتر تلقائياً اتصال أي هاتف أو جهاز ما لم يكن عنوان الـ MAC الخاص به مضافاً ومسموحاً له في هذه القائمة.",
                         fontSize = 12.sp,
                         color = Color.LightGray
                     )
+
+                    Button(
+                        onClick = { viewModel.enforceOpenNetworkWhitelist() },
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen.copy(alpha = 0.25f)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("تثبيت وضع الحصر الصارم (Whitelist) بالراوتر", color = SuccessGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                 }
             }
         }
