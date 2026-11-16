@@ -169,7 +169,9 @@ class MainViewModel(
                     prefs.saveWifiNetworks(list)
 
                     // If an open network is detected, sync its state and name
-                    val openNet = list.find { it.isGuestOrOpen || it.securityMode.contains("None") }
+                    val openNet = list.find {
+                        it.isGuestOrOpen && it.password.isBlank() && !it.securityMode.contains("WPA", ignoreCase = true)
+                    }
                     if (openNet != null) {
                         _openNetworkSsid.value = openNet.ssid
                         _openNetworkEnabled.value = openNet.isEnabled
@@ -353,16 +355,28 @@ class MainViewModel(
     fun updateWifiNetwork(item: WifiNetworkItem) {
         viewModelScope.launch {
             _isLoading.value = true
+            val isTrulyOpen = item.password.isBlank() &&
+                !item.password.contains("•") &&
+                (item.securityMode.contains("None", ignoreCase = true) || item.securityMode.contains("Open", ignoreCase = true) || item.isGuestOrOpen) &&
+                !item.securityMode.contains("WPA", ignoreCase = true) &&
+                !item.securityMode.contains("11i", ignoreCase = true)
+
+            val cleanItem = item.copy(
+                password = if (isTrulyOpen) "" else item.password.trim(),
+                securityMode = if (isTrulyOpen) "مفتوحة بدون باسورد (Open)" else if (item.securityMode.contains("None", ignoreCase = true)) "WPA2-PSK" else item.securityMode,
+                isGuestOrOpen = isTrulyOpen
+            )
+
             val updatedList = _wifiNetworks.value.map {
-                if (it.ssidIndex == item.ssidIndex && it.band == item.band) item else it
+                if (it.ssidIndex == cleanItem.ssidIndex && it.band == cleanItem.band) cleanItem else it
             }
             _wifiNetworks.value = updatedList
             prefs.saveWifiNetworks(updatedList)
 
-            val res = service.updateWifiNetwork(item)
+            val res = service.updateWifiNetwork(cleanItem)
             _isLoading.value = false
             if (res.isSuccess) {
-                _statusMessage.value = "تم تحديث شبكة (${item.ssid}) بنجاح على الراوتر!"
+                _statusMessage.value = "تم تحديث شبكة (${cleanItem.ssid}) بنجاح على الراوتر!"
             } else {
                 _statusMessage.value = "تم حفظ التعديلات وإرسالها للراوتر!"
             }

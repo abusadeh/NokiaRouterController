@@ -905,22 +905,44 @@ class NokiaRouterService(
                         val beaconType = item["BeaconType"]?.toString() ?: "11i"
                         val channel = item["Channel"]?.toString() ?: "Auto"
 
-                        // Extract password from psks array and decrypt it
-                        var clearPassword = ""
+                        // Extract password from psks array or direct fields, and decrypt it
+                        var rawKey = ""
                         val psks = item["psks"] as? List<*>
                         if (psks != null && psks.isNotEmpty()) {
                             val firstPsk = psks[0] as? Map<*, *>
-                            val rawKey = firstPsk?.get("PreSharedKey")?.toString().orEmpty()
-                            clearPassword = decryptIfEncrypted(rawKey)
+                            rawKey = firstPsk?.get("PreSharedKey")?.toString().orEmpty()
+                        }
+                        if (rawKey.isEmpty()) {
+                            rawKey = item["PreSharedKey"]?.toString()
+                                ?: item["wpaKey"]?.toString()
+                                ?: item["KeyPassphrase"]?.toString()
+                                ?: item["key"]?.toString()
+                                ?: ""
                         }
 
-                        val isSecurityNone = beaconType.equals("None", ignoreCase = true) || (clearPassword.isEmpty() && beaconType.isEmpty())
+                        var clearPassword = ""
+                        if (rawKey.isNotEmpty()) {
+                            clearPassword = decryptIfEncrypted(rawKey).trim()
+                        }
+
+                        val encryptMode = item["encryptionmode"]?.toString()
+                            ?: item["wl_encryptmode"]?.toString()
+                            ?: item["encryption_mode"]?.toString()
+                            ?: ""
+
+                        val isExplicitlyOpen = (beaconType.equals("None", ignoreCase = true) || encryptMode.equals("None", ignoreCase = true))
+                            && clearPassword.isEmpty()
+
                         val securityStr = when {
-                            isSecurityNone -> "مفتوحة بدون باسورد (Open)"
+                            isExplicitlyOpen -> "مفتوحة بدون باسورد (Open)"
                             beaconType.contains("WPA3", ignoreCase = true) -> "WPA3-SAE"
                             beaconType.contains("11i", ignoreCase = true) || beaconType.contains("WPA2", ignoreCase = true) -> "WPA2-PSK"
+                            beaconType.contains("WPA", ignoreCase = true) -> "WPA/WPA2 Personal"
+                            clearPassword.isNotEmpty() -> "WPA2-PSK"
                             else -> "WPA/WPA2 Personal"
                         }
+
+                        val isTrulyOpen = isExplicitlyOpen && clearPassword.isEmpty()
 
                         output.add(
                             WifiNetworkItem(
@@ -932,7 +954,7 @@ class NokiaRouterService(
                                 securityMode = securityStr,
                                 password = clearPassword,
                                 channel = channel,
-                                isGuestOrOpen = isSecurityNone || ssidIndex in listOf(2, 6)
+                                isGuestOrOpen = isTrulyOpen
                             )
                         )
                     }
@@ -955,12 +977,21 @@ class NokiaRouterService(
                         if (ssid.isBlank()) continue
                         val enable = (item["Enable"] as? Number)?.toInt() ?: 1
                         if (enable == 0) continue
-                        var clearPassword = ""
-                        val rawKey = item["PreSharedKey"]?.toString() ?: item["wpaKey"]?.toString().orEmpty()
-                        if (rawKey.isNotEmpty()) {
-                            clearPassword = decryptIfEncrypted(rawKey)
+                        var rawKey = item["PreSharedKey"]?.toString()
+                            ?: item["wpaKey"]?.toString()
+                            ?: item["KeyPassphrase"]?.toString()
+                            ?: ""
+                        val psks = item["psks"] as? List<*>
+                        if (rawKey.isEmpty() && psks != null && psks.isNotEmpty()) {
+                            val firstPsk = psks[0] as? Map<*, *>
+                            rawKey = firstPsk?.get("PreSharedKey")?.toString().orEmpty()
                         }
-                        val isOpen = clearPassword.isEmpty() || item["security_mode"] == "None"
+                        var clearPassword = ""
+                        if (rawKey.isNotEmpty()) {
+                            clearPassword = decryptIfEncrypted(rawKey).trim()
+                        }
+                        val secMode = item["security_mode"]?.toString() ?: item["encryptionmode"]?.toString() ?: ""
+                        val isTrulyOpen = clearPassword.isEmpty() && (secMode.equals("None", ignoreCase = true) || secMode.isEmpty())
 
                         output.add(
                             WifiNetworkItem(
@@ -969,9 +1000,9 @@ class NokiaRouterService(
                                 band = "2.4 GHz + 5 GHz (Guest)",
                                 isEnabled = enable == 1,
                                 isBroadcast = true,
-                                securityMode = if (isOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
+                                securityMode = if (isTrulyOpen) "مفتوحة بدون باسورد (Open)" else "WPA2-PSK",
                                 password = clearPassword,
-                                isGuestOrOpen = true
+                                isGuestOrOpen = isTrulyOpen
                             )
                         )
                     }

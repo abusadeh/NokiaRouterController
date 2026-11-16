@@ -40,9 +40,14 @@ fun OpenNetworkScreen(
     val statusMsg by viewModel.statusMessage.collectAsState()
     val context = LocalContext.current
 
-    // Filter open networks (networks without password or marked open/guest)
-    val openNetworks = wifiNetworks.filter {
-        it.isGuestOrOpen || it.securityMode.contains("None", ignoreCase = true) || it.password.isEmpty()
+    // Filter genuine open networks: strictly MUST have empty password AND must NOT be WPA/11i/SAE
+    val openNetworks = wifiNetworks.filter { net ->
+        net.password.isBlank() &&
+        !net.password.contains("•") &&
+        (net.isGuestOrOpen || net.securityMode.contains("None", ignoreCase = true) || net.securityMode.contains("Open", ignoreCase = true)) &&
+        !net.securityMode.contains("WPA", ignoreCase = true) &&
+        !net.securityMode.contains("11i", ignoreCase = true) &&
+        !net.securityMode.contains("SAE", ignoreCase = true)
     }
 
     // Devices currently connected or detected that are NOT in the whitelist
@@ -55,6 +60,7 @@ fun OpenNetworkScreen(
     var newMacInput by remember { mutableStateOf("") }
     var newNameInput by remember { mutableStateOf("") }
     var macToDelete by remember { mutableStateOf<MacFilterEntry?>(null) }
+    var networkToDelete by remember { mutableStateOf<WifiNetworkItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
     // Manual MAC Add Dialog
@@ -198,6 +204,36 @@ fun OpenNetworkScreen(
         )
     }
 
+    // Delete Open Network Dialog
+    if (networkToDelete != null) {
+        val net = networkToDelete!!
+        AlertDialog(
+            onDismissRequest = { networkToDelete = null },
+            icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = DangerRed, modifier = Modifier.size(36.dp)) },
+            title = { Text("حذف الشبكة المفتوحة", fontWeight = FontWeight.Bold, color = Color.White) },
+            text = {
+                Text(
+                    "هل أنت متأكد من رغبتك في حذف أو إيقاف الشبكة المفتوحة (${net.ssid})؟ سيتم إيقاف بثها من الراوتر.",
+                    color = Color.LightGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteWifiNetwork(net)
+                        networkToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
+                ) {
+                    Text("حذف الشبكة", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { networkToDelete = null }) { Text("إلغاء", color = Color.LightGray) }
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -300,7 +336,7 @@ fun OpenNetworkScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Wifi, contentDescription = null, tint = SuccessGreen)
                             Column {
                                 Text(openNet.ssid, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
@@ -308,13 +344,19 @@ fun OpenNetworkScreen(
                             }
                         }
 
-                        Switch(
-                            checked = openNet.isEnabled,
-                            onCheckedChange = { isChecked ->
-                                viewModel.updateWifiNetwork(openNet.copy(isEnabled = isChecked))
-                            },
-                            colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            IconButton(onClick = { networkToDelete = openNet }) {
+                                Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الشبكة", tint = DangerRed.copy(alpha = 0.8f))
+                            }
+
+                            Switch(
+                                checked = openNet.isEnabled,
+                                onCheckedChange = { isChecked ->
+                                    viewModel.updateWifiNetwork(openNet.copy(isEnabled = isChecked))
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = SuccessGreen)
+                            )
+                        }
                     }
                 }
             }

@@ -374,6 +374,12 @@ fun WifiNetworkCard(
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     val isPrimary = network.ssidIndex == 1 || network.ssidIndex == 5
+    val isTrulyOpen = network.password.isBlank() &&
+        !network.password.contains("•") &&
+        (network.securityMode.contains("None", ignoreCase = true) || network.securityMode.contains("Open", ignoreCase = true) || network.isGuestOrOpen) &&
+        !network.securityMode.contains("WPA", ignoreCase = true) &&
+        !network.securityMode.contains("11i", ignoreCase = true) &&
+        !network.securityMode.contains("SAE", ignoreCase = true)
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -433,7 +439,7 @@ fun WifiNetworkCard(
                         Text(
                             text = "${network.band} • ${network.securityMode}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (network.isGuestOrOpen) SuccessGreen else AccentCyan
+                            color = if (isTrulyOpen) SuccessGreen else AccentCyan
                         )
                     }
                 }
@@ -451,7 +457,7 @@ fun WifiNetworkCard(
             HorizontalDivider(color = DarkSurfaceCard)
 
             // Password & Properties Row
-            if (network.securityMode.contains("None", ignoreCase = true) || network.isGuestOrOpen && network.password.isEmpty()) {
+            if (isTrulyOpen) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = NokiaBlueDark.copy(alpha = 0.4f),
